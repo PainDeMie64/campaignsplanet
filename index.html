@@ -222,11 +222,11 @@
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.055;
+    controls.dampingFactor = 0.01;
     controls.enablePan = false;
     controls.minDistance = 2.1;
     controls.maxDistance = 5.8;
-    controls.rotateSpeed = 0.8;
+    controls.rotateSpeed = 1.5;
 
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
