@@ -221,19 +221,125 @@
     camera.position.set(0, 0.55, 3.72);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.001;
+    controls.enableDamping = false;
     controls.enablePan = false;
     controls.minDistance = 2.1;
     controls.maxDistance = 5.8;
-    controls.rotateSpeed = 20.5;
+    controls.rotateSpeed = 1.15;
+
+    const dragState = {
+      active: false,
+      pointerId: null,
+      lastX: 0,
+      lastY: 0,
+      lastTime: 0
+    };
+
+    let inertiaThetaVelocity = 0;
+    let inertiaPhiVelocity = 0;
+    const inertialSpherical = new THREE.Spherical();
+    const inertialOffset = new THREE.Vector3();
+    const INERTIA_DECAY = 0.5;
+    const INERTIA_BOOST = 0.92;
+    const MAX_INERTIA_VELOCITY = 10.5;
 
     function stopOrbitSpin() {
-      if (controls._sphericalDelta) {
-        controls._sphericalDelta.theta = 0;
-        controls._sphericalDelta.phi = 0;
-      }
+      inertiaThetaVelocity = 0;
+      inertiaPhiVelocity = 0;
     }
+
+    function signedBlend(currentVelocity, nextVelocity) {
+      if (!currentVelocity) return nextVelocity;
+      if (currentVelocity * nextVelocity < 0) return nextVelocity;
+      return THREE.MathUtils.lerp(currentVelocity, nextVelocity, 0.42);
+    }
+
+    function angularVelocityFromPointerDelta(delta, viewportSize, dt) {
+      if (!dt || !viewportSize) return 0;
+      const angle = (2 * Math.PI * delta * controls.rotateSpeed) / viewportSize;
+      return -angle / dt;
+    }
+
+    function updateInertialVelocity(event) {
+      const now = performance.now();
+      if (!dragState.lastTime) {
+        dragState.lastX = event.clientX;
+        dragState.lastY = event.clientY;
+        dragState.lastTime = now;
+        return;
+      }
+
+      const dt = Math.min((now - dragState.lastTime) / 1000, 0.05);
+      const deltaX = event.clientX - dragState.lastX;
+      const deltaY = event.clientY - dragState.lastY;
+      dragState.lastX = event.clientX;
+      dragState.lastY = event.clientY;
+      dragState.lastTime = now;
+
+      if (dt <= 0) return;
+
+      const viewportSize = renderer.domElement.clientHeight || window.innerHeight;
+      const nextThetaVelocity = angularVelocityFromPointerDelta(deltaX, viewportSize, dt);
+      const nextPhiVelocity = angularVelocityFromPointerDelta(deltaY, viewportSize, dt);
+      inertiaThetaVelocity = THREE.MathUtils.clamp(
+        signedBlend(inertiaThetaVelocity, nextThetaVelocity) * INERTIA_BOOST,
+        -MAX_INERTIA_VELOCITY,
+        MAX_INERTIA_VELOCITY
+      );
+      inertiaPhiVelocity = THREE.MathUtils.clamp(
+        signedBlend(inertiaPhiVelocity, nextPhiVelocity) * INERTIA_BOOST,
+        -MAX_INERTIA_VELOCITY,
+        MAX_INERTIA_VELOCITY
+      );
+    }
+
+    function applyInertialSpin(deltaTime) {
+      if (dragState.active) return;
+      if (Math.abs(inertiaThetaVelocity) < 0.0001 && Math.abs(inertiaPhiVelocity) < 0.0001) return;
+
+      inertialOffset.copy(camera.position).sub(controls.target);
+      inertialSpherical.setFromVector3(inertialOffset);
+      inertialSpherical.theta += inertiaThetaVelocity * deltaTime;
+      inertialSpherical.phi = THREE.MathUtils.clamp(
+        inertialSpherical.phi + inertiaPhiVelocity * deltaTime,
+        controls.minPolarAngle + 0.001,
+        controls.maxPolarAngle - 0.001
+      );
+      inertialSpherical.makeSafe();
+
+      inertialOffset.setFromSpherical(inertialSpherical);
+      camera.position.copy(controls.target).add(inertialOffset);
+      camera.lookAt(controls.target);
+
+      const decay = Math.exp(-INERTIA_DECAY * deltaTime);
+      inertiaThetaVelocity *= decay;
+      inertiaPhiVelocity *= decay;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || !globePointFromRay(event)) return;
+      dragState.active = true;
+      dragState.pointerId = event.pointerId;
+      dragState.lastX = event.clientX;
+      dragState.lastY = event.clientY;
+      dragState.lastTime = performance.now();
+      stopOrbitSpin();
+    });
+
+    renderer.domElement.addEventListener('pointermove', (event) => {
+      if (!dragState.active || event.pointerId !== dragState.pointerId) return;
+      updateInertialVelocity(event);
+    });
+
+    function finishDrag(event) {
+      if (!dragState.active || event.pointerId !== dragState.pointerId) return;
+      dragState.active = false;
+      dragState.pointerId = null;
+      dragState.lastTime = 0;
+    }
+
+    renderer.domElement.addEventListener('pointerup', finishDrag);
+    renderer.domElement.addEventListener('pointercancel', finishDrag);
 
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
@@ -589,6 +695,7 @@
     }
 
     renderer.domElement.addEventListener('pointermove', (event) => {
+      if (dragState.active) return;
       hoveredCampaign = campaignFromRay(event);
       renderer.domElement.style.cursor = hoveredCampaign ? 'pointer' : 'grab';
       updateVisualState();
@@ -676,9 +783,11 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      const deltaTime = Math.min(clock.getDelta(), 0.05);
+      const t = clock.elapsedTime;
       stars.rotation.y = t * 0.01;
       rim.rotation.y = -t * 0.015;
+      applyInertialSpin(deltaTime);
       controls.update();
       updateLabels();
       renderer.render(scene, camera);
