@@ -242,7 +242,8 @@
     const inertialSpherical = new THREE.Spherical();
     const inertialOffset = new THREE.Vector3();
     const INERTIA_DECAY = 0.5;
-    const INERTIA_BOOST = 0.92;
+    const INERTIA_BOOST = 0.5;
+    const INERTIA_THRESHOLD = 20;
     const MAX_INERTIA_VELOCITY = 10.5;
 
     function stopOrbitSpin() {
@@ -279,6 +280,10 @@
       dragState.lastTime = now;
 
       if (dt <= 0) return;
+
+      const dx = Math.abs(deltaX);
+      const dy = Math.abs(deltaY);
+      if (dx < INERTIA_THRESHOLD && dy < INERTIA_THRESHOLD) return;
 
       const viewportSize = renderer.domElement.clientHeight || window.innerHeight;
       const nextThetaVelocity = angularVelocityFromPointerDelta(deltaX, viewportSize, dt);
