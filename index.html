@@ -667,8 +667,97 @@
     let hoveredCampaign = null;
     let selectedCampaign = null;
 
+    const CAMERA_FORWARD = new THREE.Vector3();
+    const CAMERA_UP = new THREE.Vector3();
+    const CAMERA_RIGHT = new THREE.Vector3();
+    const CAMERA_BASIS = new THREE.Matrix4();
+    const CAMERA_FRAME = new THREE.Quaternion();
+    const FOCUS_LOCAL_UP = new THREE.Vector3();
+    const FOCUS_LOCAL_RIGHT = new THREE.Vector3();
+    const FOCUS_LOCAL_BASIS = new THREE.Matrix4();
+    const FOCUS_LOCAL_FRAME = new THREE.Quaternion();
+    const FOCUS_PATH_DELTA = new THREE.Quaternion();
+    const FOCUS_PATH_STEP = new THREE.Quaternion();
+    const FOCUS_POINT = new THREE.Vector3();
+    const GLOBE_INVERSE = new THREE.Quaternion();
+    const LOCAL_NORTH = new THREE.Vector3(0, 1, 0);
+    const LOCAL_EAST_FALLBACK = new THREE.Vector3(0, 0, 1);
+
+    const focusRotation = {
+      active: false,
+      startTime: 0,
+      duration: 500,
+      fromPoint: new THREE.Vector3(),
+      toPoint: new THREE.Vector3(),
+      path: new THREE.Quaternion()
+    };
+
     function activeCampaign() {
       return hoveredCampaign || selectedCampaign;
+    }
+
+    function stopFocusRotation() {
+      focusRotation.active = false;
+    }
+
+    function worldDirectionForCampaign(campaign) {
+      return latLonToVector3(campaign.centroid.lat, campaign.centroid.lon)
+        .applyQuaternion(globeGroup.quaternion)
+        .normalize();
+    }
+
+    function buildCameraFrameQuaternion() {
+      CAMERA_FORWARD.copy(camera.position).sub(controls.target).normalize();
+      CAMERA_UP.copy(camera.up).projectOnPlane(CAMERA_FORWARD).normalize();
+      CAMERA_RIGHT.copy(CAMERA_UP).cross(CAMERA_FORWARD).normalize();
+      CAMERA_UP.copy(CAMERA_FORWARD).cross(CAMERA_RIGHT).normalize();
+      CAMERA_BASIS.makeBasis(CAMERA_RIGHT, CAMERA_UP, CAMERA_FORWARD);
+      return CAMERA_FRAME.setFromRotationMatrix(CAMERA_BASIS);
+    }
+
+    function currentFocusPoint() {
+      return CAMERA_FORWARD.copy(camera.position)
+        .sub(controls.target)
+        .normalize()
+        .applyQuaternion(GLOBE_INVERSE.copy(globeGroup.quaternion).invert())
+        .normalize();
+    }
+
+    function setGlobeFocusPoint(point) {
+      buildCameraFrameQuaternion();
+      FOCUS_LOCAL_UP.copy(LOCAL_NORTH).projectOnPlane(point);
+      if (FOCUS_LOCAL_UP.lengthSq() < 1e-6) {
+        FOCUS_LOCAL_UP.copy(LOCAL_EAST_FALLBACK).projectOnPlane(point);
+      }
+      FOCUS_LOCAL_UP.normalize();
+      FOCUS_LOCAL_RIGHT.copy(FOCUS_LOCAL_UP).cross(point).normalize();
+      FOCUS_LOCAL_UP.copy(point).cross(FOCUS_LOCAL_RIGHT).normalize();
+      FOCUS_LOCAL_BASIS.makeBasis(FOCUS_LOCAL_RIGHT, FOCUS_LOCAL_UP, point);
+      FOCUS_LOCAL_FRAME.setFromRotationMatrix(FOCUS_LOCAL_BASIS).invert();
+      globeGroup.quaternion.copy(CAMERA_FRAME).multiply(FOCUS_LOCAL_FRAME).normalize();
+    }
+
+    function startFocusRotation(campaign) {
+      focusRotation.fromPoint.copy(currentFocusPoint());
+      focusRotation.toPoint.copy(latLonToVector3(campaign.centroid.lat, campaign.centroid.lon)).normalize();
+      focusRotation.path.setFromUnitVectors(focusRotation.fromPoint, focusRotation.toPoint);
+      focusRotation.startTime = performance.now();
+      focusRotation.active = true;
+    }
+
+    function updateFocusRotation(now) {
+      if (!focusRotation.active) return;
+
+      const progress = Math.min((now - focusRotation.startTime) / focusRotation.duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      FOCUS_PATH_STEP.slerpQuaternions(new THREE.Quaternion(), focusRotation.path, eased);
+      FOCUS_POINT.copy(focusRotation.fromPoint).applyQuaternion(FOCUS_PATH_STEP).normalize();
+      setGlobeFocusPoint(FOCUS_POINT);
+
+      if (progress >= 1) {
+        setGlobeFocusPoint(focusRotation.toPoint);
+        focusRotation.active = false;
+      }
     }
 
     function updateVisualState() {
@@ -690,7 +779,7 @@
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObject(globe);
-      return hits.length ? hits[0].point.clone().normalize() : null;
+      return hits.length ? globe.worldToLocal(hits[0].point.clone()).normalize() : null;
     }
 
     function campaignFromRay(event) {
@@ -717,12 +806,14 @@
     renderer.domElement.addEventListener('pointerdown', (event) => {
       if (!globePointFromRay(event)) return;
       stopOrbitSpin();
+      stopFocusRotation();
       controls.update();
     });
 
     renderer.domElement.addEventListener('click', (event) => {
       selectedCampaign = campaignFromRay(event);
       hoveredCampaign = selectedCampaign;
+      if (selectedCampaign) startFocusRotation(selectedCampaign);
       updateVisualState();
     });
 
@@ -734,7 +825,8 @@
 
       for (const campaign of CAMPAIGNS) {
         const label = labelEntries.get(campaign.id);
-        const pointDir = campaign.labelAnchor.clone().normalize();
+        const worldAnchor = campaign.labelAnchor.clone().applyQuaternion(globeGroup.quaternion);
+        const pointDir = worldAnchor.clone().normalize();
         const facing = pointDir.dot(cameraDir) > 0.02;
         if (!facing) {
           label.classList.add('hidden');
@@ -742,7 +834,7 @@
         }
 
         label.classList.remove('hidden');
-        const projected = campaign.labelAnchor.clone().project(camera);
+        const projected = worldAnchor.project(camera);
         const x = (projected.x * 0.5 + 0.5) * width;
         const y = (-projected.y * 0.5 + 0.5) * height;
         const isActive = active && campaign.id === active.id;
@@ -795,6 +887,7 @@
       stars.rotation.y = t * 0.01;
       rim.rotation.y = -t * 0.015;
       applyInertialSpin(deltaTime);
+      updateFocusRotation(performance.now());
       controls.update();
       updateLabels();
       renderer.render(scene, camera);
