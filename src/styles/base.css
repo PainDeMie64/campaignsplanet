@@ -1,0 +1,37 @@
+:root {
+  color-scheme: dark;
+  --text: rgba(241, 247, 252, 0.96);
+  --body-bg:
+    radial-gradient(circle at 52% 38%, rgba(91, 163, 190, 0.22), transparent 32%),
+    radial-gradient(circle at 50% 50%, #162630 0%, #101820 58%, #080d12 100%);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --text: rgba(22, 33, 40, 0.96);
+  --body-bg:
+    radial-gradient(circle at 52% 38%, rgba(127, 183, 201, 0.16), transparent 32%),
+    linear-gradient(135deg, #f7fbfc 0%, #e8f1f4 54%, #dce9ee 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--body-bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
