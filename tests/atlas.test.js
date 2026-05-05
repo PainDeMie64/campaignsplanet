@@ -84,6 +84,21 @@ test('atlas organization matches source-backed campaign buckets', () => {
   assert.equal(atlas.campaignById['tmn-stadium-pro'].maps.length, 10);
   assert.equal(atlas.campaignById['tmn-stadium-bonus'].maps.length, 20);
 
+  assert.deepEqual(groupsFor('tms'), ['Race', 'Race Extreme', 'Crazy', 'Platform', 'Puzzle', 'Stunts', 'Bonus Tracks']);
+  assert.equal(byGame('tms').reduce((sum, campaign) => sum + campaign.maps.length, 0), 158);
+  assert.deepEqual(
+    atlas.campaignById['tms-race-holidays'].maps.map((map) => map.name),
+    ['SkidOrDie', 'CarPark', 'ParadiseIsland', 'NightFlight', 'GoodMorning']
+  );
+  assert.deepEqual(
+    atlas.campaignById['tms-platform-peak'].maps.map((map) => map.name),
+    ['LandingArea', 'DoubleLoop', 'TrialTime', 'Platform Hard', 'ThinkForward']
+  );
+  assert.ok(atlas.campaignById['tms-puzzle-brain-teaser'].maps.some((map) => map.name === 'Bay Starter'));
+  assert.ok(atlas.campaignById['tms-stunts-atmospheric-reentry'].maps.some((map) => map.name === 'GiantPinball'));
+  assert.ok(atlas.campaignById['tms-bonus-tracks-microlaps'].maps.some((map) => map.name === 'SicilianArena'));
+  assert.equal(byGame('tms').some((campaign) => campaign.maps.some((map) => ['DemoRace1', 'DemoRace2', 'SilicanArena', 'Forest Jumps'].includes(map.name))), false);
+
   assert.deepEqual(groupsFor('tmuf'), ['Race']);
   assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
   assert.deepEqual([...new Set(byGame('tmuf').map((campaign) => campaign.environment))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);

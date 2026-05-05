@@ -14,13 +14,16 @@ const UNITED_TIERS = tierCounts({ white: 5, green: 5, blue: 5, red: 5, black: 1 
 
 const MODE = {
   RACE: 'Race',
+  RACE_EXTREME: 'Race Extreme',
   STUNT: 'Stunt',
+  STUNTS: 'Stunts',
   PLATFORM: 'Platform',
   PUZZLE: 'Puzzle',
   CRAZY: 'Crazy',
   SOLO: 'Solo Campaign',
   PRO: 'Pro Campaign',
   BONUS: 'Bonus Campaign',
+  BONUS_TRACKS: 'Bonus Tracks',
   SEASONAL: 'Seasonal Campaigns',
   TRAINING: 'Training'
 };
@@ -336,10 +339,6 @@ const tmoSnow = points([38, -118], [43, -114], [49, -113], [54, -117], [58, -124
 const tmoDesert = points([28, -136], [34, -143], [42, -146], [50, -143], [57, -136]);
 const tmoRally = points([36, -153], [43, -157], [51, -156], [58, -151], [62, -144]);
 
-const tmsIsland = points([-47, -149], [-37, -147], [-28, -144], [-21, -137], [-15, -130]);
-const tmsBay = points([-58, -137], [-49, -135], [-40, -133], [-31, -130], [-24, -123]);
-const tmsCoast = points([-54, -125], [-46, -121], [-37, -117], [-28, -115], [-19, -114]);
-
 const tmnStadium = points([59, -76], [55, -65], [50, -54], [44, -44], [36, -36]);
 const tmufSnow = points([42, 49], [46, 52], [50, 54], [54, 52], [56, 48]);
 const tmufDesert = points([54, 1], [58, 7], [61, 14], [63, 21], [61, 27]);
@@ -390,56 +389,117 @@ const TM2020_SEASONS = [
   { seasonName: 'Spring 2026', baseId: 'tm2020-spring-2026', releaseDate: '2026-04-01', points: tm2020Spring }
 ];
 
-const SUNRISE_RACE_TIERS = [
-  { ...CLASSIC_TIERS[0], id: 'starter', name: 'Starter Race' },
-  { ...CLASSIC_TIERS[1], id: 'race', name: 'Race' },
-  { ...CLASSIC_TIERS[2], id: 'expert', name: 'Expert Race' }
-];
-
-const SUNRISE_RACE_MAPS = {
-  Island: {
-    starter: ['Aerial Lights', 'High Tide', 'Midnight', 'Small Ring', 'VulcanRing'],
-    race: ['Anaconda', 'BeachTime', 'BeautifulDay', 'CarPark', 'CrazyBridge', 'Dangerous Descent', 'EnterTheWorm', 'GoodMorning', 'LateAfter8', 'NightFlight', 'NightRound', 'ParadiseIsland', 'SkidOrDie', 'SpeedWave', 'Straight Ahead', 'TwoMountains', 'VulcanBird', 'VulcanHarbor', 'XRace03', 'XRace06', 'XRace09'],
-    expert: ['Antigrav', 'Orbital', 'RampRage']
-  },
-  Coast: {
-    starter: ['Five Rows', 'Training Circuit'],
-    race: ['AquaScheme', 'ClimbTheHill', "CoteD'Azur", 'DarkRuin', 'GoingHome', 'GrandPrix', 'GrandPrix2', 'HomeRun', 'JumpOnBrakes', 'Magnitude', 'NightRider', 'QuietRide', 'RabbitHill', 'RomanRuin', 'RuinByNight', 'RuinOfTheSun', 'SeeYouSoon', 'SilicanArena', 'Snake', 'Toscany', 'TownToTown', 'Up and Down', 'Village', 'XRace01', 'XRace04', 'XRace07'],
-    expert: ['GrandPrix30']
-  },
-  Bay: {
-    starter: ['Bouncy Alley', 'Chaos Area', 'Forest Jumps', 'Secret Caves'],
-    race: ['BipBopSound', 'BuildingRider', 'CentralPark', 'CleanLanding', 'Crazy8', 'CrossOver', 'DemoRace1', 'DemoRace2', 'Deviation', 'DownTown', 'EmperorRoof', 'FollowTheLeader', 'GateOfTheSun', 'HighStreet', 'Kangourou', "LoopN'Roof", 'OnTheRoofAgain', 'OutOfTheDock', 'ShoppingCentre', 'Suburbs', 'TrickyTrack', 'TunnelEffect', 'Westside', 'XRace02', 'XRace05', 'XRace08'],
-    expert: ['HappyBay']
-  }
+const SUNRISE_CATEGORY_META = {
+  [MODE.RACE]: { releaseDate: '2005-04-06', era: 'Sunrise', color: '#f4f7f8', difficulty: 2 },
+  [MODE.RACE_EXTREME]: { releaseDate: '2005-11-14', era: 'Sunrise eXtreme', color: '#ff4d6d', difficulty: 7, mode: MODE.RACE },
+  [MODE.CRAZY]: { releaseDate: '2005-04-06', era: 'Sunrise', color: '#ffcf5f', difficulty: 5 },
+  [MODE.PLATFORM]: { releaseDate: '2005-04-06', era: 'Sunrise', color: '#4da3ff', difficulty: 6 },
+  [MODE.PUZZLE]: { releaseDate: '2005-04-06', era: 'Sunrise', color: '#58d36c', difficulty: 5 },
+  [MODE.STUNTS]: { releaseDate: '2005-11-14', era: 'Sunrise eXtreme', color: '#ff9f1c', difficulty: 6, mode: MODE.STUNT },
+  [MODE.BONUS_TRACKS]: { releaseDate: '2005-11-14', era: 'Sunrise eXtreme', color: '#b78cff', difficulty: 4, mode: MODE.RACE }
 };
 
-function sunriseRaceSeries({ gameId, family, environment, baseId, releaseDate, points, region, surface, description }) {
-  return SUNRISE_RACE_TIERS
-    .map((tier, index) => {
-      const mapNames = SUNRISE_RACE_MAPS[environment]?.[tier.id] ?? [];
-      if (!mapNames.length) return null;
-      return explicitCampaign({
-        id: `${baseId}-${tier.id}`,
-        gameId,
-        family,
-        environment,
-        mode: MODE.RACE,
-        category: MODE.RACE,
-        tier: { ...tier, count: mapNames.length },
-        shortLabel: `${environment} ${tier.name.replace(' Race', '')}`,
-        order: index,
-        releaseDate,
-        era: 'Sunrise',
-        lat: points[index].lat,
-        lon: points[index].lon,
-        region,
-        surface,
-        description,
-        mapNames
-      });
-    })
-    .filter(Boolean);
+const SUNRISE_CAMPAIGN_GROUPS = [
+  {
+    category: MODE.RACE,
+    groups: [
+      ['Holidays', ['SkidOrDie', 'CarPark', 'ParadiseIsland', 'NightFlight', 'GoodMorning']],
+      ['Shopping', ['Downtown', 'CrossOver', 'FollowTheLeader', 'TrickyTrack', 'OnTheRoofAgain']],
+      ['Excursion', ['QuietRide', 'GrandPrix', 'Snake', 'JumpOnBrakes', 'Village']],
+      ['Surfing', ['SpeedWave', 'Antigrav', 'BeautifulDay', 'Midnight', 'RampRage']],
+      ['NightLife', ['HighStreet', 'TunnelEffect', 'Suburbs', 'Deviation', 'BuildingRider']],
+      ['Evasion', ['Magnitude', 'GrandPrix2', 'HomeRun', 'AquaScheme', 'NightRider']],
+      ['Pointbreak', ['Orbital', 'HappyBay', 'GrandPrix30']]
+    ]
+  },
+  {
+    category: MODE.RACE_EXTREME,
+    groups: [
+      ['Extreme', ['XRace01', 'XRace02', 'XRace03', 'XRace04', 'XRace05', 'XRace06', 'XRace07', 'XRace08', 'XRace09']]
+    ]
+  },
+  {
+    category: MODE.CRAZY,
+    groups: [
+      ['Carnival', ['Small Ring', 'Secret Caves', 'Training Circuit', 'Straight Ahead', 'Forest Jump', 'Up and Down', 'Dangerous Descent']],
+      ['Circus', ['Aerial Lights', 'Chaos Area', 'Five Rows', 'High Tide', 'Bouncy Alley']]
+    ]
+  },
+  {
+    category: MODE.PLATFORM,
+    groups: [
+      ['Lagoon', ['AirControl', 'OverTheTop', 'OldSchool', 'CityAirport', 'Gravity']],
+      ['Docks', ['DockOfTheBay', 'UrbanStyle', 'TheCage', 'NiceShot', 'LittleWalk']],
+      ['Cliffs', ['Stop!', 'FullTurtle', 'StepByStep', 'Spiral', 'MissingBridge']],
+      ['Peak', ['LandingArea', 'DoubleLoop', 'TrialTime', 'Platform Hard', 'ThinkForward']],
+      ['Summit', ['TamTam', 'Platform Extreme', 'Vertigo']]
+    ]
+  },
+  {
+    category: MODE.PUZZLE,
+    groups: [
+      ['Brain Teaser', ['Bay Starter', 'Buildings Ahead', 'Ideal 265', 'Tight Budget', 'Double Jump']],
+      ['Question', ['Tilted Curves', 'Trident', 'The Right Speed', 'Smooth Slopes', 'Deadend Checkpoints']],
+      ['Riddle', ['4Roads', 'Tangram', 'Highs and Lows', 'Undulate Line', 'Tangram2']],
+      ['Brainstorm', ['Meteor Crash', 'MiniG3', 'Tunneling', 'Harbor Ramps', 'Aim for the Top']],
+      ['Enigma', ['Big Bowl', 'Work Around', 'Drunken Tunnel', 'The Left Speed', 'Pillar of Summer']],
+      ['Mystery', ['PlotHoles', 'Simple Line', 'Water Pillar', 'Strange Motif', 'Rabbit Holes']],
+      ['Koan', ['Final Speed', 'Mixed Line', 'Pyramid of Doom']]
+    ]
+  },
+  {
+    category: MODE.STUNTS,
+    groups: [
+      ['Jump Rope', ['WarmUp', "Rock'n'Roll", 'ChaosTheory']],
+      ['Trampoline', ['StuntPark', 'Aquaplanning', 'BoatRide']],
+      ['Bungie Jumping', ['RocketJump', 'WatchTheStep', 'FlipFlop']],
+      ['Parachute', ['HeadOrTails', 'Medallion', 'SpinHell']],
+      ['Atmospheric Reentry', ['Backyard', 'Satellite', 'GiantPinball']]
+    ]
+  },
+  {
+    category: MODE.BONUS_TRACKS,
+    groups: [
+      ['MicroLaps', ['CentralPark', 'Crazy8', 'DarkRuin', 'NightRound', 'SeeYouSoon', 'ShoppingCenter', 'SicilianArena', 'TwoMountains', 'VulcanRing']],
+      ['MicroTracks', ['EmperorRoof', 'Kangourou', 'OutOfTheDock', 'RomanRuin', 'RuinByNight', 'RuinOfTheSun', 'VulcanBird', 'VulcanHarbor']],
+      ['MiniLaps', ["CoteD'Azur", 'CrazyBridge', 'EnterTheWorm', 'GateOfTheSun', 'LateAfter8', 'RabbitHill', 'Toscany', 'WestSide']],
+      ['MiniTracks', ['Anaconda', 'BeachTime', 'BipBopSound', 'CleanLanding', 'ClimbTheHill', 'GoingHome', "LoopN'Roof", 'TownToTown']]
+    ]
+  }
+];
+
+function slug(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function sunriseCampaignSeries() {
+  return SUNRISE_CAMPAIGN_GROUPS.flatMap((section, sectionIndex) => {
+    const meta = SUNRISE_CATEGORY_META[section.category];
+    return section.groups.map(([group, mapNames], groupIndex) => explicitCampaign({
+      id: `tms-${slug(section.category)}-${slug(group)}`,
+      gameId: 'tms',
+      family: section.category,
+      environment: 'Mixed',
+      mode: meta.mode ?? section.category,
+      category: section.category,
+      tier: {
+        id: slug(group),
+        code: group,
+        name: group,
+        count: mapNames.length,
+        difficulty: Math.min(10, meta.difficulty + Math.floor(groupIndex / 2)),
+        color: meta.color
+      },
+      shortLabel: group,
+      order: sectionIndex * 100 + groupIndex,
+      releaseDate: meta.releaseDate,
+      era: meta.era,
+      region: group,
+      surface: 'mixed',
+      description: `TrackMania Sunrise ${section.category} ${group} campaign maps from the medal-times source.`,
+      mapNames
+    }));
+  });
 }
 
 function originalRaceCampaign({ environment, baseId, tierCode, lat, lon, surface, description }) {
@@ -493,8 +553,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2005,
       status: 'legacy',
       palette: { land: '#34677e', coast: '#ffd166', accent: '#ff8e3c', ocean: '#18303d' },
-      terrain: 'Sunrise solo race campaign using Island, Bay, and Coast maps',
-      environments: [MODE.RACE],
+      terrain: 'Sunrise and Sunrise eXtreme campaigns organized by in-game mode and named folder',
+      environments: [MODE.RACE, MODE.RACE_EXTREME, MODE.CRAZY, MODE.PLATFORM, MODE.PUZZLE, MODE.STUNTS, MODE.BONUS_TRACKS],
       regionLabelOffsets: {
         Island: { dx: 80, dy: -70 },
         Bay: { dx: -134, dy: 54 },
@@ -614,9 +674,7 @@ export const CAMPAIGN_ATLAS = {
     originalRaceCampaign({ environment: 'Desert', baseId: 'tmo-desert', tierCode: 'E', lat: tmoDesert[4].lat, lon: tmoDesert[4].lon, surface: 'road', description: 'TrackMania Original Desert RaceE official progression.' }),
     originalRaceCampaign({ environment: 'Rally', baseId: 'tmo-rally', tierCode: 'C', lat: tmoRally[2].lat, lon: tmoRally[2].lon, surface: 'road', description: 'TrackMania Original Rally RaceC official progression.' }),
 
-    ...sunriseRaceSeries({ gameId: 'tms', family: 'Island', environment: 'Island', baseId: 'tms-island', releaseDate: '2005-04-06', points: tmsIsland, region: 'Island', surface: 'asphalt', description: 'Sunrise Island official race maps from Nadeo.' }),
-    ...sunriseRaceSeries({ gameId: 'tms', family: 'Bay', environment: 'Bay', baseId: 'tms-bay', releaseDate: '2005-04-06', points: tmsBay, region: 'Bay', surface: 'city', description: 'Sunrise Bay official race maps from Nadeo.' }),
-    ...sunriseRaceSeries({ gameId: 'tms', family: 'Coast', environment: 'Coast', baseId: 'tms-coast', releaseDate: '2005-04-06', points: tmsCoast, region: 'Coast', surface: 'road', description: 'Sunrise Coast official race maps from Nadeo.' }),
+    ...sunriseCampaignSeries(),
 
     ...nationsEswcSeries({ points: tmnStadium }),
 
