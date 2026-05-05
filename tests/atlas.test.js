@@ -6,6 +6,7 @@ import { filterCampaigns, filterMaps } from '../src/data/selectors.js';
 import { normalizeAtlasPayload, validateAtlasShape } from '../src/data/liveAtlas.js';
 import { visibleLiveCampaignIds } from '../src/data/liveHistory.js';
 import { campaignGroupLabel } from '../src/data/campaignGrouping.js';
+import exchangeIds from '../src/data/exchangeIds.json' with { type: 'json' };
 import { buildFlatAtlasLayout, FLAT_ATLAS_STYLE, GAME_RELEASE_YEARS } from '../src/flat/flatAtlasLayout.js';
 import { displayMapLabel } from '../src/flat/textLabels.js';
 
@@ -85,6 +86,49 @@ test('map search returns map rows with campaign references', () => {
   assert.ok(maps.some((map) => map.name === 'A06-Obstacle' && map.campaign));
 });
 
+test('static exchange IDs cover every supported official map', () => {
+  const atlas = deriveAtlas(CAMPAIGN_ATLAS);
+  const supportedMaps = atlas.maps.filter((map) => !['tm2', 'tm2020'].includes(map.gameId));
+  assert.equal(supportedMaps.length, 912);
+  assert.equal(Object.keys(exchangeIds.maps).length, supportedMaps.length);
+  for (const map of supportedMaps) {
+    const entry = exchangeIds.maps[map.id];
+    assert.ok(entry, `${map.id} has a stored Exchange ID`);
+    assert.equal(entry.mapName, map.name, `${map.id} stored name matches atlas name`);
+    assert.ok(Number.isInteger(entry.trackId), `${map.id} has numeric track ID`);
+    assert.equal(entry.trackshowUrl, `${entry.baseUrl}/trackshow/${entry.trackId}`);
+    assert.ok(entry.trackName.length > 0, `${map.id} stores the Exchange track name`);
+    assert.ok(['Nadeo', 'StarTrack'].includes(entry.officialAuthor), `${map.id} stores an official author`);
+  }
+  for (const map of atlas.maps.filter((item) => ['tm2', 'tm2020'].includes(item.gameId))) {
+    assert.equal(exchangeIds.maps[map.id], undefined, `${map.id} is intentionally unsupported`);
+  }
+});
+
+test('static exchange IDs pin exact official uploads', () => {
+  assert.deepEqual(
+    {
+      site: exchangeIds.maps['tmuf-star-snow-black-01'].site,
+      author: exchangeIds.maps['tmuf-star-snow-black-01'].officialAuthor,
+      trackId: exchangeIds.maps['tmuf-star-snow-black-01'].trackId,
+      url: exchangeIds.maps['tmuf-star-snow-black-01'].trackshowUrl
+    },
+    {
+      site: 'TMUF-X',
+      author: 'StarTrack',
+      trackId: 1629118,
+      url: 'https://tmuf.exchange/trackshow/1629118'
+    }
+  );
+  assert.equal(exchangeIds.maps['tmuf-nations-white-06'].site, 'TMNF-X');
+  assert.equal(exchangeIds.maps['tmuf-nations-white-06'].trackId, 2248);
+  assert.equal(exchangeIds.maps['tmnf-stadium-white-06'].trackId, 2248);
+  assert.equal(exchangeIds.maps['tmn-stadium-pro-01'].trackId, 2622);
+  assert.equal(exchangeIds.maps['tms-race-holidays-01'].trackId, 35903);
+  assert.equal(exchangeIds.maps['tmo-race-group-a-01'].trackId, 1839);
+  assert.equal(exchangeIds.maps['tmuf-platform-black-01'].trackId, 38427);
+});
+
 test('atlas organization matches source-backed campaign buckets', () => {
   const atlas = deriveAtlas(CAMPAIGN_ATLAS);
   const byGame = (gameId) => atlas.campaigns.filter((campaign) => campaign.gameId === gameId);
@@ -123,12 +167,12 @@ test('atlas organization matches source-backed campaign buckets', () => {
   );
   assert.deepEqual(
     atlas.campaignById['tms-platform-peak'].maps.map((map) => map.name),
-    ['LandingArea', 'DoubleLoop', 'TrialTime', 'Platform Hard', 'ThinkForward']
+    ['LandingArea', 'DoubleLoop', 'TrialTime', 'HitTheRamp', 'ThinkForward']
   );
   assert.ok(atlas.campaignById['tms-puzzle-brain-teaser'].maps.some((map) => map.name === 'Bay Starter'));
   assert.ok(atlas.campaignById['tms-stunts-atmospheric-reentry'].maps.some((map) => map.name === 'GiantPinball'));
-  assert.ok(atlas.campaignById['tms-bonus-tracks-microlaps'].maps.some((map) => map.name === 'SicilianArena'));
-  assert.equal(byGame('tms').some((campaign) => campaign.maps.some((map) => ['DemoRace1', 'DemoRace2', 'SilicanArena', 'Forest Jumps'].includes(map.name))), false);
+  assert.ok(atlas.campaignById['tms-bonus-tracks-microlaps'].maps.some((map) => map.name === 'SilicanArena'));
+  assert.equal(byGame('tms').some((campaign) => campaign.maps.some((map) => ['DemoRace1', 'DemoRace2', 'SicilianArena', 'Forest Jump', 'Platform Hard', 'Platform Extreme'].includes(map.name))), false);
 
   assert.deepEqual(groupsFor('tmuf'), [
     'Race',

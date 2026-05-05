@@ -1,9 +1,11 @@
 import { registerLiveSync } from './liveSync.js';
 import { registerDeepLinks } from './deepLinks.js';
+import { registerExchangeOverlay } from './exchangeOverlay.js';
 
 const FEATURE_MODULES = [
   registerLiveSync,
-  registerDeepLinks
+  registerDeepLinks,
+  registerExchangeOverlay
 ];
 
 export function registerFeatures(app) {

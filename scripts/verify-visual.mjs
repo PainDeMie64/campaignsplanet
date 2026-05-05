@@ -40,7 +40,9 @@ async function verifyViewport(page, url, name, size) {
   assert.ok(stats.colored > 1500, `${name} flat canvas has color variance: ${JSON.stringify(stats)}`);
 
   const appChildren = await page.evaluate(() => [...document.querySelector('#app').children].map((node) => node.id || node.tagName));
-  assert.deepEqual(appChildren, ['flat-atlas']);
+  assert.deepEqual(appChildren, ['flat-atlas', 'exchange-overlay']);
+  const exchangeLink = await page.locator('#exchange-overlay a[href*="/trackshow/"]').count();
+  assert.ok(exchangeLink > 0, `${name} exchange overlay exposes a stored trackshow link`);
 
   await page.screenshot({ path: `${outDir}/${name}.png`, fullPage: true });
 }

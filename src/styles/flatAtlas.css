@@ -10,3 +10,75 @@
 #flat-atlas:active {
   cursor: grabbing;
 }
+
+#exchange-overlay {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  width: min(330px, calc(100vw - 36px));
+  padding: 14px 16px;
+  border: 1px solid rgba(243, 240, 215, 0.34);
+  background: rgba(11, 19, 24, 0.78);
+  color: rgba(248, 247, 230, 0.94);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(12px);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: auto;
+}
+
+:root[data-theme="light"] #exchange-overlay {
+  border-color: rgba(22, 33, 40, 0.18);
+  background: rgba(248, 251, 252, 0.84);
+  color: rgba(22, 33, 40, 0.94);
+  box-shadow: 0 18px 50px rgba(56, 78, 88, 0.18);
+}
+
+#exchange-overlay h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+#exchange-overlay dl {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0 0 10px;
+}
+
+#exchange-overlay dt {
+  color: rgba(205, 217, 222, 0.76);
+}
+
+:root[data-theme="light"] #exchange-overlay dt {
+  color: rgba(56, 78, 88, 0.72);
+}
+
+#exchange-overlay dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#exchange-overlay p {
+  margin: 0;
+}
+
+#exchange-overlay a {
+  color: #8fd9ff;
+  font-weight: 800;
+}
+
+:root[data-theme="light"] #exchange-overlay a {
+  color: #126a90;
+}
+
+#exchange-overlay .exchange-error {
+  color: #ffb4a8;
+}
+
+:root[data-theme="light"] #exchange-overlay .exchange-error {
+  color: #9b2f20;
+}

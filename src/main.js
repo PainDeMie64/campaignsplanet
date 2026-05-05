@@ -4,7 +4,8 @@ import { createApp } from './app/createApp.js';
 import { registerFeatures } from './features/index.js';
 
 const app = await createApp({
-  flatCanvas: document.getElementById('flat-atlas')
+  flatCanvas: document.getElementById('flat-atlas'),
+  exchangeOverlay: document.getElementById('exchange-overlay')
 });
 
 registerFeatures(app);

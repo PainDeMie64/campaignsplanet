@@ -437,7 +437,7 @@ const SUNRISE_CAMPAIGN_GROUPS = [
   {
     category: MODE.CRAZY,
     groups: [
-      ['Carnival', ['Small Ring', 'Secret Caves', 'Training Circuit', 'Straight Ahead', 'Forest Jump', 'Up and Down', 'Dangerous Descent']],
+      ['Carnival', ['Small Ring', 'Secret Caves', 'Training Circuit', 'Straight Ahead', 'Forest Jumps', 'Up and Down', 'Dangerous Descent']],
       ['Circus', ['Aerial Lights', 'Chaos Area', 'Five Rows', 'High Tide', 'Bouncy Alley']]
     ]
   },
@@ -447,8 +447,8 @@ const SUNRISE_CAMPAIGN_GROUPS = [
       ['Lagoon', ['AirControl', 'OverTheTop', 'OldSchool', 'CityAirport', 'Gravity']],
       ['Docks', ['DockOfTheBay', 'UrbanStyle', 'TheCage', 'NiceShot', 'LittleWalk']],
       ['Cliffs', ['Stop!', 'FullTurtle', 'StepByStep', 'Spiral', 'MissingBridge']],
-      ['Peak', ['LandingArea', 'DoubleLoop', 'TrialTime', 'Platform Hard', 'ThinkForward']],
-      ['Summit', ['TamTam', 'Platform Extreme', 'Vertigo']]
+      ['Peak', ['LandingArea', 'DoubleLoop', 'TrialTime', 'HitTheRamp', 'ThinkForward']],
+      ['Summit', ['TamTam', 'Goal!', 'Vertigo']]
     ]
   },
   {
@@ -457,9 +457,9 @@ const SUNRISE_CAMPAIGN_GROUPS = [
       ['Brain Teaser', ['Bay Starter', 'Buildings Ahead', 'Ideal 265', 'Tight Budget', 'Double Jump']],
       ['Question', ['Tilted Curves', 'Trident', 'The Right Speed', 'Smooth Slopes', 'Deadend Checkpoints']],
       ['Riddle', ['4Roads', 'Tangram', 'Highs and Lows', 'Undulate Line', 'Tangram2']],
-      ['Brainstorm', ['Meteor Crash', 'MiniG3', 'Tunneling', 'Harbor Ramps', 'Aim for the Top']],
+      ['Brainstorm', ['Meteor Crash', 'MiniG3', 'Tunneling', 'Harbour Ramps', 'Aim for the Top']],
       ['Enigma', ['Big Bowl', 'Work Around', 'Drunken Tunnel', 'The Left Speed', 'Pillar of Summer']],
-      ['Mystery', ['PlotHoles', 'Simple Line', 'Water Pillar', 'Strange Motif', 'Rabbit Holes']],
+      ['Mystery', ['PlotHoles', 'SimpleLine', 'Water Pillar', 'Strange Motif', 'Rabbit Holes']],
       ['Koan', ['Final Speed', 'Mixed Line', 'Pyramid of Doom']]
     ]
   },
@@ -476,7 +476,7 @@ const SUNRISE_CAMPAIGN_GROUPS = [
   {
     category: MODE.BONUS_TRACKS,
     groups: [
-      ['MicroLaps', ['CentralPark', 'Crazy8', 'DarkRuin', 'NightRound', 'SeeYouSoon', 'ShoppingCenter', 'SicilianArena', 'TwoMountains', 'VulcanRing']],
+      ['MicroLaps', ['CentralPark', 'Crazy8', 'DarkRuin', 'NightRound', 'SeeYouSoon', 'ShoppingCentre', 'SilicanArena', 'TwoMountains', 'VulcanRing']],
       ['MicroTracks', ['EmperorRoof', 'Kangourou', 'OutOfTheDock', 'RomanRuin', 'RuinByNight', 'RuinOfTheSun', 'VulcanBird', 'VulcanHarbor']],
       ['MiniLaps', ["CoteD'Azur", 'CrazyBridge', 'EnterTheWorm', 'GateOfTheSun', 'LateAfter8', 'RabbitHill', 'Toscany', 'WestSide']],
       ['MiniTracks', ['Anaconda', 'BeachTime', 'BipBopSound', 'CleanLanding', 'ClimbTheHill', 'GoingHome', "LoopN'Roof", 'TownToTown']]
