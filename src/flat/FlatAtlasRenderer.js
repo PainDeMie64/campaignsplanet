@@ -21,6 +21,13 @@ function rectContains(rect, x, y) {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
 
+function campaignOrigin(game, environment, campaign, section = null) {
+  return {
+    x: game.x + environment.x + (section?.x ?? 0) + campaign.x,
+    y: game.y + environment.y + (section?.y ?? 0) + campaign.y
+  };
+}
+
 export class FlatAtlasRenderer {
   constructor({ canvas, store }) {
     this.canvas = canvas;
@@ -152,6 +159,58 @@ export class FlatAtlasRenderer {
           height: environment.height
         };
         if (!rectContains(environmentRect, point.x, point.y)) continue;
+        for (const section of environment.sections ?? []) {
+          const sectionRect = {
+            x: environmentRect.x + section.x,
+            y: environmentRect.y + section.y,
+            width: section.width,
+            height: section.height
+          };
+          if (!rectContains(sectionRect, point.x, point.y)) continue;
+          for (const campaign of section.campaigns) {
+            const campaignRect = {
+              x: sectionRect.x + campaign.x,
+              y: sectionRect.y + campaign.y,
+              width: campaign.width,
+              height: campaign.height
+            };
+            if (!rectContains(campaignRect, point.x, point.y)) continue;
+            for (const map of campaign.maps) {
+              const mapRect = {
+                x: campaignRect.x + map.x,
+                y: campaignRect.y + map.y,
+                width: map.width,
+                height: map.height
+              };
+              if (rectContains(mapRect, point.x, point.y)) {
+                this.store.setState(() => ({
+                  selectedGameId: game.game.id,
+                  selectedRegion: environment.environment,
+                  selectedSection: section.section,
+                  selectedCampaignId: campaign.campaign.id,
+                  selectedMapId: map.map.id
+                }), { source: 'flat-atlas-map-pick' });
+                return;
+              }
+            }
+            this.store.setState(() => ({
+              selectedGameId: game.game.id,
+              selectedRegion: environment.environment,
+              selectedSection: section.section,
+              selectedCampaignId: campaign.campaign.id,
+              selectedMapId: null
+            }), { source: 'flat-atlas-campaign-pick' });
+            return;
+          }
+          this.store.setState(() => ({
+            selectedGameId: game.game.id,
+            selectedRegion: environment.environment,
+            selectedSection: section.section,
+            selectedCampaignId: null,
+            selectedMapId: null
+          }), { source: 'flat-atlas-section-pick' });
+          return;
+        }
         for (const campaign of environment.campaigns) {
           const campaignRect = {
             x: environmentRect.x + campaign.x,
@@ -168,9 +227,10 @@ export class FlatAtlasRenderer {
               height: map.height
             };
             if (rectContains(mapRect, point.x, point.y)) {
-              this.store.setState((state) => ({
+              this.store.setState(() => ({
                 selectedGameId: game.game.id,
-                selectedRegion: campaign.campaign.environment,
+                selectedRegion: environment.environment,
+                selectedSection: null,
                 selectedCampaignId: campaign.campaign.id,
                 selectedMapId: map.map.id
               }), { source: 'flat-atlas-map-pick' });
@@ -180,6 +240,7 @@ export class FlatAtlasRenderer {
           this.store.setState(() => ({
             selectedGameId: game.game.id,
             selectedRegion: environment.environment,
+            selectedSection: null,
             selectedCampaignId: campaign.campaign.id,
             selectedMapId: null
           }), { source: 'flat-atlas-campaign-pick' });
@@ -188,6 +249,7 @@ export class FlatAtlasRenderer {
         this.store.setState(() => ({
           selectedGameId: game.game.id,
           selectedRegion: environment.environment,
+          selectedSection: null,
           selectedCampaignId: null,
           selectedMapId: null
         }), { source: 'flat-atlas-environment-pick' });
@@ -196,6 +258,7 @@ export class FlatAtlasRenderer {
       this.store.setState(() => ({
         selectedGameId: game.game.id,
         selectedRegion: null,
+        selectedSection: null,
         selectedCampaignId: null,
         selectedMapId: null
       }), { source: 'flat-atlas-game-pick' });
@@ -211,10 +274,11 @@ export class FlatAtlasRenderer {
     this.ctx.fillText(String(text).toUpperCase(), x, y);
   }
 
-  drawMap(game, environment, campaign, map) {
+  drawMap(game, environment, campaign, map, section = null) {
     const state = this.store.getState();
-    const x = game.x + environment.x + campaign.x + map.x;
-    const y = game.y + environment.y + campaign.y + map.y;
+    const origin = campaignOrigin(game, environment, campaign, section);
+    const x = origin.x + map.x;
+    const y = origin.y + map.y;
     const selected = map.map.id === state.selectedMapId;
     this.ctx.fillStyle = selected
       ? alpha(campaign.campaign.tierColor || game.game.palette.accent, 0.84)
@@ -226,10 +290,11 @@ export class FlatAtlasRenderer {
     this.drawText(map.label, x + map.width / 2, y + map.height / 2 + 0.5, FLAT_ATLAS_STYLE.mapLabelSize, '#fffdf2');
   }
 
-  drawCampaign(game, environment, campaign) {
+  drawCampaign(game, environment, campaign, section = null) {
     const state = this.store.getState();
-    const x = game.x + environment.x + campaign.x;
-    const y = game.y + environment.y + campaign.y;
+    const origin = campaignOrigin(game, environment, campaign, section);
+    const x = origin.x;
+    const y = origin.y;
     const selected = campaign.campaign.id === state.selectedCampaignId;
     this.ctx.fillStyle = alpha(game.game.palette.land, selected ? 0.58 : 0.34);
     this.ctx.fillRect(x, y, campaign.width, campaign.height);
@@ -237,7 +302,21 @@ export class FlatAtlasRenderer {
     this.ctx.lineWidth = selected ? 2 : 1;
     this.ctx.strokeRect(x, y, campaign.width, campaign.height);
     this.drawText(campaign.title, x + campaign.width / 2, y + FLAT_ATLAS_STYLE.campaignPad + 2, FLAT_ATLAS_STYLE.campaignTitleSize, '#f8f7e6');
-    for (const map of campaign.maps) this.drawMap(game, environment, campaign, map);
+    for (const map of campaign.maps) this.drawMap(game, environment, campaign, map, section);
+  }
+
+  drawSection(game, environment, section) {
+    const state = this.store.getState();
+    const x = game.x + environment.x + section.x;
+    const y = game.y + environment.y + section.y;
+    const selected = state.selectedRegion === environment.environment && state.selectedSection === section.section;
+    this.ctx.fillStyle = alpha(game.game.palette.land, selected ? 0.5 : 0.3);
+    this.ctx.fillRect(x, y, section.width, section.height);
+    this.ctx.strokeStyle = alpha(game.game.palette.coast, selected ? 0.9 : 0.52);
+    this.ctx.lineWidth = selected ? 2 : 1;
+    this.ctx.strokeRect(x, y, section.width, section.height);
+    this.drawText(section.title, x + section.titleX, y + section.titleY, FLAT_ATLAS_STYLE.environmentTitleSize, game.game.palette.coast);
+    for (const campaign of section.campaigns) this.drawCampaign(game, environment, campaign, section);
   }
 
   drawEnvironment(game, environment) {
@@ -257,6 +336,7 @@ export class FlatAtlasRenderer {
       FLAT_ATLAS_STYLE.environmentTitleSize,
       game.game.palette.coast
     );
+    for (const section of environment.sections ?? []) this.drawSection(game, environment, section);
     for (const campaign of environment.campaigns) this.drawCampaign(game, environment, campaign);
   }
 

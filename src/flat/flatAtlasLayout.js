@@ -19,6 +19,9 @@ export const FLAT_ATLAS_STYLE = {
   gameCollapsedWidth: 360,
   gameCollapsedHeight: 58,
   environmentCollapsedHeight: 42,
+  sectionCollapsedHeight: 38,
+  sectionPad: 10,
+  sectionGap: 10,
   campaignCollapsedHeight: 34,
   timelinePadX: 70,
   timelinePadY: 34,
@@ -65,6 +68,17 @@ function environmentOrder(game, groups) {
     ...(game.environments ?? []),
     ...[...groups.keys()].filter((environment) => !(game.environments ?? []).includes(environment)).sort()
   ].filter((environment) => groups.has(environment));
+}
+
+function sectionLabel(campaign) {
+  return campaign?.section ?? null;
+}
+
+function sectionOrder(campaigns, groups) {
+  return [
+    ...[...new Set(campaigns.map(sectionLabel).filter(Boolean))],
+    ...[...groups.keys()].filter((section) => !campaigns.some((campaign) => sectionLabel(campaign) === section)).sort()
+  ].filter((section) => groups.has(section));
 }
 
 function visibleCampaigns(state, game) {
@@ -241,6 +255,165 @@ function layoutEnvironment(game, environment, campaigns, measureText, style, exp
   };
 }
 
+function layoutSection(section, campaigns, measureText, style, expanded = false, selectedCampaignId = null) {
+  const sectionTitleWidth = textWidth(measureText, section, style.environmentTitleSize, 900);
+  if (!expanded) {
+    return {
+      section,
+      title: section,
+      x: 0,
+      y: 0,
+      width: Math.max(160, sectionTitleWidth + style.sectionPad * 2),
+      height: style.sectionCollapsedHeight,
+      titleX: Math.max(160, sectionTitleWidth + style.sectionPad * 2) / 2,
+      titleY: style.sectionCollapsedHeight / 2,
+      expanded: false,
+      campaigns: []
+    };
+  }
+
+  const campaignLayouts = sortCampaigns(campaigns).map((campaign) => (
+    layoutCampaign(campaign, measureText, style, campaign.id === selectedCampaignId)
+  ));
+  const targetWidth = Math.max(
+    340,
+    Math.sqrt(campaignLayouts.reduce((sum, campaign) => sum + campaign.width * campaign.height, 0)) * 1.55
+  );
+  const rows = [];
+  let current = [];
+  let currentWidth = 0;
+  for (const campaign of campaignLayouts) {
+    const nextWidth = currentWidth + (current.length ? style.campaignGap : 0) + campaign.width;
+    if (current.length && nextWidth > targetWidth) {
+      rows.push(current);
+      current = [];
+      currentWidth = 0;
+    }
+    current.push(campaign);
+    currentWidth += (current.length > 1 ? style.campaignGap : 0) + campaign.width;
+  }
+  if (current.length) rows.push(current);
+
+  const rowSizes = rows.map((row) => ({
+    width: row.reduce((sum, campaign, index) => sum + campaign.width + (index ? style.campaignGap : 0), 0),
+    height: Math.max(...row.map((campaign) => campaign.height), 1)
+  }));
+  const contentWidth = Math.max(sectionTitleWidth, ...rowSizes.map((row) => row.width), 1);
+  const titleHeight = style.environmentTitleSize + style.sectionPad;
+  const contentHeight = titleHeight + rowSizes.reduce((sum, row, index) => sum + row.height + (index ? style.campaignGap : 0), 0);
+  const width = contentWidth + style.sectionPad * 2;
+  const height = contentHeight + style.sectionPad * 2;
+  const campaignPlacements = [];
+  let y = style.sectionPad + titleHeight;
+  rows.forEach((row, rowIndex) => {
+    const rowSize = rowSizes[rowIndex];
+    let x = style.sectionPad + (contentWidth - rowSize.width) / 2;
+    for (const campaign of row) {
+      campaignPlacements.push({ ...campaign, x, y });
+      x += campaign.width + style.campaignGap;
+    }
+    y += rowSize.height + style.campaignGap;
+  });
+
+  return {
+    section,
+    title: section,
+    x: 0,
+    y: 0,
+    width,
+    height,
+    titleX: style.sectionPad + contentWidth / 2,
+    titleY: style.sectionPad + style.environmentTitleSize,
+    expanded: true,
+    campaigns: campaignPlacements
+  };
+}
+
+function layoutEnvironmentWithSections(game, environment, campaigns, measureText, style, expanded = false, selectedSection = null, selectedCampaignId = null) {
+  const environmentTitleWidth = textWidth(measureText, environment, style.environmentTitleSize, 900);
+  if (!expanded) {
+    const width = Math.max(180, environmentTitleWidth + style.environmentPad * 2);
+    return {
+      environment,
+      x: 0,
+      y: 0,
+      width,
+      height: style.environmentCollapsedHeight,
+      title: environment,
+      titleX: width / 2,
+      titleY: style.environmentCollapsedHeight / 2,
+      expanded: false,
+      sections: [],
+      campaigns: []
+    };
+  }
+
+  const groups = groupBy(campaigns, (campaign) => sectionLabel(campaign) ?? 'Official');
+  const sectionLayouts = sectionOrder(campaigns, groups).map((section) => (
+    layoutSection(
+      section,
+      groups.get(section),
+      measureText,
+      style,
+      section === selectedSection,
+      selectedCampaignId
+    )
+  ));
+  const targetWidth = Math.max(
+    520,
+    Math.sqrt(sectionLayouts.reduce((sum, section) => sum + section.width * section.height, 0)) * 1.45
+  );
+  const rows = [];
+  let current = [];
+  let currentWidth = 0;
+  for (const section of sectionLayouts) {
+    const nextWidth = currentWidth + (current.length ? style.sectionGap : 0) + section.width;
+    if (current.length && nextWidth > targetWidth) {
+      rows.push(current);
+      current = [];
+      currentWidth = 0;
+    }
+    current.push(section);
+    currentWidth += (current.length > 1 ? style.sectionGap : 0) + section.width;
+  }
+  if (current.length) rows.push(current);
+
+  const rowSizes = rows.map((row) => ({
+    width: row.reduce((sum, section, index) => sum + section.width + (index ? style.sectionGap : 0), 0),
+    height: Math.max(...row.map((section) => section.height), 1)
+  }));
+  const contentWidth = Math.max(environmentTitleWidth, ...rowSizes.map((row) => row.width), 1);
+  const titleHeight = style.environmentTitleSize + style.environmentPad;
+  const contentHeight = titleHeight + rowSizes.reduce((sum, row, index) => sum + row.height + (index ? style.sectionGap : 0), 0);
+  const width = contentWidth + style.environmentPad * 2;
+  const height = contentHeight + style.environmentPad * 2;
+  const sectionPlacements = [];
+  let y = style.environmentPad + titleHeight;
+  rows.forEach((row, rowIndex) => {
+    const rowSize = rowSizes[rowIndex];
+    let x = style.environmentPad + (contentWidth - rowSize.width) / 2;
+    for (const section of row) {
+      sectionPlacements.push({ ...section, x, y });
+      x += section.width + style.sectionGap;
+    }
+    y += rowSize.height + style.sectionGap;
+  });
+
+  return {
+    environment,
+    x: 0,
+    y: 0,
+    width,
+    height,
+    title: environment,
+    titleX: style.environmentPad + contentWidth / 2,
+    titleY: style.environmentPad + style.environmentTitleSize,
+    expanded: true,
+    sections: sectionPlacements,
+    campaigns: []
+  };
+}
+
 function layoutGame(game, campaigns, measureText, style, selectedPath) {
   const releaseYear = GAME_RELEASE_YEARS[game.id] ?? game.releaseYear ?? Number.parseInt(game.releaseYear, 10) ?? 0;
   const gameTitleWidth = textWidth(measureText, game.name, style.gameTitleSize, 900);
@@ -262,7 +435,16 @@ function layoutGame(game, campaigns, measureText, style, selectedPath) {
   }
   const groups = groupBy(campaigns, campaignGroupLabel);
   const environmentLayouts = environmentOrder(game, groups).map((environment) => (
-    layoutEnvironment(
+    groups.get(environment).some(sectionLabel) ? layoutEnvironmentWithSections(
+      game,
+      environment,
+      groups.get(environment),
+      measureText,
+      style,
+      environment === selectedPath.environment,
+      selectedPath.section,
+      selectedPath.campaignId
+    ) : layoutEnvironment(
       game,
       environment,
       groups.get(environment),
@@ -331,6 +513,7 @@ export function buildFlatAtlasLayout(state, measureText, style = FLAT_ATLAS_STYL
   const selectedPath = {
     gameId: state.selectedGameId ?? state.atlas.games[0]?.id ?? null,
     environment: state.selectedRegion ?? null,
+    section: state.selectedSection ?? null,
     campaignId: state.selectedCampaignId ?? null
   };
   const games = state.atlas.games

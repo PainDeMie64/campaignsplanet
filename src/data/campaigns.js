@@ -44,7 +44,7 @@ function medals(seed, index, difficulty) {
   };
 }
 
-function makeMaps({ campaignId, tier, environment, surface, mode, category, nameForIndex }) {
+function makeMaps({ campaignId, tier, environment, surface, mode, category, section = null, nameForIndex }) {
   const seed = [...campaignId].reduce((total, char) => total + char.charCodeAt(0), 0) % 17;
   return Array.from({ length: tier.count }, (_, index) => ({
     id: `${campaignId}-${String(index + 1).padStart(2, '0')}`,
@@ -55,8 +55,9 @@ function makeMaps({ campaignId, tier, environment, surface, mode, category, name
     surface,
     mode,
     category,
+    section,
     difficulty: Math.min(10, Math.max(1, tier.difficulty + Math.floor(index / 6))),
-    tags: [environment.toLowerCase(), surface, mode?.toLowerCase(), category?.toLowerCase(), tier.id, tier.code].filter(Boolean),
+    tags: [environment.toLowerCase(), surface, mode?.toLowerCase(), category?.toLowerCase(), section?.toLowerCase(), tier.id, tier.code].filter(Boolean),
     medals: medals(seed, index, tier.difficulty),
     tmxId: null
   }));
@@ -69,6 +70,7 @@ function tierCampaign({
   environment,
   mode = MODE.RACE,
   category = environment,
+  section = null,
   tier,
   shortLabel = tier.code,
   order,
@@ -91,6 +93,7 @@ function tierCampaign({
     environment,
     mode,
     category,
+    section,
     tier: tier.name,
     tierCode: tier.code,
     shortLabel,
@@ -110,12 +113,13 @@ function tierCampaign({
       surface,
       mode,
       category,
+      section,
       nameForIndex
     })
   };
 }
 
-function classicSeries({ gameId, family, environment, mode = MODE.RACE, category = environment, baseId, releaseDate, era, status, points, region, surface, description, tiers = CLASSIC_TIERS, shortLabelForTier, orderForTier, mapNameForIndex }) {
+function classicSeries({ gameId, family, environment, mode = MODE.RACE, category = environment, section = null, baseId, releaseDate, era, status, points, region, surface, description, tiers = CLASSIC_TIERS, shortLabelForTier, orderForTier, mapNameForIndex }) {
   return tiers.map((tier, index) => tierCampaign({
     id: `${baseId}-${tier.id}`,
     gameId,
@@ -123,6 +127,7 @@ function classicSeries({ gameId, family, environment, mode = MODE.RACE, category
     environment,
     mode,
     category,
+    section,
     tier,
     shortLabel: shortLabelForTier ? shortLabelForTier({ tier, environment, index }) : tier.code,
     order: orderForTier ? orderForTier({ tier, environment, index }) : index,
@@ -618,7 +623,8 @@ function unitedRaceSeries() {
       gameId: 'tmuf',
       family: environment,
       environment,
-      category: `${MODE.RACE} - ${environment}`,
+      category: MODE.RACE,
+      section: environment,
       baseId: `tmuf-${slug(environment)}`,
       releaseDate: '2008-04-16',
       era: 'Forever',
@@ -676,7 +682,8 @@ function unitedStarTrackSeries() {
       gameId: 'tmuf',
       family: `${MODE.STARTRACK} ${environment}`,
       environment,
-      category: `${MODE.STARTRACK} - ${environment}`,
+      category: MODE.STARTRACK,
+      section: environment,
       baseId: `tmuf-star-${slug(environment)}`,
       releaseDate: '2009-11-26',
       era: 'Star Edition',
@@ -727,12 +734,12 @@ function unitedForeverCampaignSeries() {
 }
 
 const UNITED_CATEGORY_ORDER = [
-  ...UNITED_ENVIRONMENTS.map(({ environment }) => `${MODE.RACE} - ${environment}`),
+  MODE.RACE,
   MODE.PLATFORM,
   MODE.PUZZLE,
   MODE.STUNTS,
   MODE.NATIONS,
-  ...UNITED_ENVIRONMENTS.map(({ environment }) => `${MODE.STARTRACK} - ${environment}`)
+  MODE.STARTRACK
 ];
 
 export const CAMPAIGN_ATLAS = {

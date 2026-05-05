@@ -41,9 +41,21 @@ function visibleCampaignsForGame(state, game) {
 function flattenLayoutMaps(layout) {
   return layout.games.flatMap((game) => (
     game.environments.flatMap((environment) => (
-      environment.campaigns.flatMap((campaign) => campaign.maps)
+      [
+        ...environment.campaigns.flatMap((campaign) => campaign.maps),
+        ...(environment.sections ?? []).flatMap((section) => (
+          section.campaigns.flatMap((campaign) => campaign.maps)
+        ))
+      ]
     ))
   ));
+}
+
+function flattenEnvironmentCampaigns(environment) {
+  return [
+    ...environment.campaigns,
+    ...(environment.sections ?? []).flatMap((section) => section.campaigns)
+  ];
 }
 
 test('derived atlas connects games, campaigns, and maps', () => {
@@ -116,28 +128,18 @@ test('atlas organization matches source-backed campaign buckets', () => {
   assert.equal(byGame('tms').some((campaign) => campaign.maps.some((map) => ['DemoRace1', 'DemoRace2', 'SilicanArena', 'Forest Jumps'].includes(map.name))), false);
 
   assert.deepEqual(groupsFor('tmuf'), [
-    'Race - Snow',
-    'Race - Desert',
-    'Race - Rally',
-    'Race - Island',
-    'Race - Coast',
-    'Race - Bay',
-    'Race - Stadium',
+    'Race',
     'Platform',
     'Puzzle',
     'Stunts',
     'Nations',
-    'StarTrack - Snow',
-    'StarTrack - Desert',
-    'StarTrack - Rally',
-    'StarTrack - Island',
-    'StarTrack - Coast',
-    'StarTrack - Bay',
-    'StarTrack - Stadium'
+    'StarTrack'
   ]);
   assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 422);
-  assert.equal(byGame('tmuf').filter((campaign) => campaign.category.startsWith('Race - ')).reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
-  assert.equal(byGame('tmuf').filter((campaign) => campaign.category.startsWith('StarTrack - ')).reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.deepEqual([...new Set(byGame('tmuf').filter((campaign) => campaign.category === 'Race').map((campaign) => campaign.section))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+  assert.deepEqual([...new Set(byGame('tmuf').filter((campaign) => campaign.category === 'StarTrack').map((campaign) => campaign.section))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+  assert.equal(byGame('tmuf').filter((campaign) => campaign.category === 'Race').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.equal(byGame('tmuf').filter((campaign) => campaign.category === 'StarTrack').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
   assert.equal(byGame('tmuf').filter((campaign) => campaign.category === 'Nations').reduce((sum, campaign) => sum + campaign.maps.length, 0), 65);
   assert.equal(atlas.campaignById['tmuf-platform-black'].maps[0].name, 'PlatformE');
   assert.equal(atlas.campaignById['tmuf-puzzle-black'].maps[0].name, 'PuzzleE');
@@ -221,6 +223,26 @@ test('flat atlas layout is generated bottom-up from single-line map labels', () 
           assert.ok(map.y + map.height <= campaign.height, `${map.map.id} map cell stays inside campaign height`);
         }
       }
+      for (const section of environment.sections ?? []) {
+        assert.ok(section.x >= 0 && section.y >= 0, `${section.section} stays inside environment origin`);
+        assert.ok(section.x + section.width <= environment.width, `${section.section} stays inside environment width`);
+        assert.ok(section.y + section.height <= environment.height, `${section.section} stays inside environment height`);
+        for (const campaign of section.campaigns) {
+          assert.equal(campaignGroupLabel(campaign.campaign), environment.environment);
+          assert.equal(campaign.campaign.section, section.section);
+          assert.ok(campaign.x >= 0 && campaign.y >= 0, `${campaign.campaign.id} stays inside section origin`);
+          assert.ok(campaign.x + campaign.width <= section.width, `${campaign.campaign.id} stays inside section width`);
+          assert.ok(campaign.y + campaign.height <= section.height, `${campaign.campaign.id} stays inside section height`);
+          for (const map of campaign.maps) {
+            const requiredWidth = deterministicTextWidth(map.label.toUpperCase(), layout.style.mapLabelSize) + layout.style.mapPadX * 2;
+            assert.equal(map.label.includes('\n'), false, `${map.map.id} flat label is single-line`);
+            assert.ok(map.width >= requiredWidth, `${map.map.id} map cell is generated from text width`);
+            assert.ok(map.x >= 0 && map.y >= 0, `${map.map.id} map cell stays inside campaign origin`);
+            assert.ok(map.x + map.width <= campaign.width, `${map.map.id} map cell stays inside campaign width`);
+            assert.ok(map.y + map.height <= campaign.height, `${map.map.id} map cell stays inside campaign height`);
+          }
+        }
+      }
     }
   }
 });
@@ -249,13 +271,46 @@ test('flat atlas expands only one game/environment/campaign path', () => {
         assert.equal(environment.campaigns.length, 0, `${environment.environment} is collapsed`);
         continue;
       }
-      assert.deepEqual(environment.campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tm2-canyon-white']);
-      for (const campaign of environment.campaigns) {
+      const campaigns = flattenEnvironmentCampaigns(environment);
+      assert.deepEqual(campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tm2-canyon-white']);
+      for (const campaign of campaigns) {
         if (campaign.campaign.id === 'tm2-canyon-white') assert.ok(campaign.maps.length > 0, 'selected campaign exposes maps');
         else assert.equal(campaign.maps.length, 0, `${campaign.campaign.id} is collapsed`);
       }
     }
   }
+});
+
+test('flat atlas nests United Forever race and startrack environments', () => {
+  const atlas = deriveAtlas(CAMPAIGN_ATLAS);
+  const state = {
+    ...baseState(atlas),
+    selectedGameId: 'tmuf',
+    selectedRegion: 'Race',
+    selectedSection: 'Snow',
+    selectedCampaignId: 'tmuf-snow-white'
+  };
+  const layout = buildFlatAtlasLayout(state, deterministicTextWidth);
+  const tmuf = layout.games.find((game) => game.game.id === 'tmuf');
+  const race = tmuf.environments.find((environment) => environment.environment === 'Race');
+
+  assert.deepEqual(tmuf.environments.map((environment) => environment.environment), ['Race', 'Platform', 'Puzzle', 'Stunts', 'Nations', 'StarTrack']);
+  assert.deepEqual(race.sections.map((section) => section.section), ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+  assert.deepEqual(race.sections.filter((section) => section.expanded).map((section) => section.section), ['Snow']);
+  assert.deepEqual(race.sections.find((section) => section.section === 'Snow').campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tmuf-snow-white']);
+
+  const starLayout = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tmuf',
+    selectedRegion: 'StarTrack',
+    selectedSection: 'Snow',
+    selectedCampaignId: 'tmuf-star-snow-white'
+  }, deterministicTextWidth);
+  const starTrack = starLayout.games.find((game) => game.game.id === 'tmuf')
+    .environments.find((environment) => environment.environment === 'StarTrack');
+  assert.deepEqual(starTrack.sections.map((section) => section.section), ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+  assert.deepEqual(starTrack.sections.filter((section) => section.expanded).map((section) => section.section), ['Snow']);
+  assert.deepEqual(starTrack.sections.find((section) => section.section === 'Snow').campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tmuf-star-snow-white']);
 });
 
 test('flat atlas lays games out as a chronological timeline', () => {

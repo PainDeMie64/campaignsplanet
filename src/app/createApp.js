@@ -11,6 +11,7 @@ export async function createApp(nodes) {
     atlas,
     selectedGameId: atlas.games[0]?.id ?? null,
     selectedRegion: null,
+    selectedSection: null,
     selectedCampaignId: null,
     selectedMapId: null,
     hoveredGameId: null,

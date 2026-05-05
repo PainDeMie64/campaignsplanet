@@ -25,7 +25,8 @@ export function registerDeepLinks(app) {
   if (initial.gameId || initial.campaignId || initial.mapId) {
     app.store.setState((state) => ({
       selectedGameId: initial.gameId ?? state.selectedGameId,
-      selectedRegion: initial.campaignId ? state.atlas.campaignById[initial.campaignId]?.environment ?? state.selectedRegion : state.selectedRegion,
+      selectedRegion: initial.campaignId ? state.atlas.campaignById[initial.campaignId]?.category ?? state.selectedRegion : state.selectedRegion,
+      selectedSection: initial.campaignId ? state.atlas.campaignById[initial.campaignId]?.section ?? null : state.selectedSection,
       selectedCampaignId: initial.campaignId ?? state.selectedCampaignId,
       selectedMapId: initial.mapId ?? state.selectedMapId
     }), { source: 'deep-link-initial' });
@@ -43,7 +44,8 @@ export function registerDeepLinks(app) {
     const params = parseParams(app.store.getState().atlas);
     app.store.setState((state) => ({
       selectedGameId: params.gameId ?? state.selectedGameId,
-      selectedRegion: params.campaignId ? state.atlas.campaignById[params.campaignId]?.environment ?? state.selectedRegion : state.selectedRegion,
+      selectedRegion: params.campaignId ? state.atlas.campaignById[params.campaignId]?.category ?? state.selectedRegion : state.selectedRegion,
+      selectedSection: params.campaignId ? state.atlas.campaignById[params.campaignId]?.section ?? null : state.selectedSection,
       selectedCampaignId: params.campaignId ?? state.selectedCampaignId,
       selectedMapId: params.mapId ?? state.selectedMapId
     }), { source: 'deep-link-popstate' });

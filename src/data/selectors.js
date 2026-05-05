@@ -20,6 +20,7 @@ export function getSelectedCampaign(state) {
   return state.atlas.campaigns.find((campaign) => {
     if (campaign.gameId !== game?.id) return false;
     if (state.selectedRegion && campaignGroupLabel(campaign) !== state.selectedRegion) return false;
+    if (state.selectedSection && campaign.section !== state.selectedSection) return false;
     return isCampaignVisible(state, campaign, visibleLiveIds);
   }) ?? null;
 }
@@ -51,6 +52,7 @@ export function filterCampaigns(state) {
       campaign.name,
       campaign.game.name,
       campaignGroupLabel(campaign),
+      campaign.section,
       campaign.environment,
       campaign.mode,
       campaign.tier,
@@ -72,6 +74,7 @@ export function filterMaps(state) {
       map.environment,
       map.surface,
       campaignGroupLabel(map.campaign),
+      map.campaign.section,
       map.campaign.name,
       map.campaign.tier,
       map.campaign.region,

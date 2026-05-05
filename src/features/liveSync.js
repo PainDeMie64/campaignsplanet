@@ -29,7 +29,8 @@ function applyAtlas(app, atlas, sync) {
     return {
       atlas,
       selectedGameId: selectedGame?.id ?? null,
-      selectedRegion: campaign?.environment ?? null,
+      selectedRegion: campaign?.category ?? campaign?.environment ?? null,
+      selectedSection: campaign?.section ?? null,
       selectedCampaignId: campaign?.id ?? null,
       selectedMapId: campaign?.maps[0]?.id ?? null,
       sync

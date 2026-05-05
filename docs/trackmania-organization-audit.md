@@ -25,7 +25,7 @@ This file records the source-backed structure used by the atlas data.
   - Original is grouped by its source-listed mode buckets: `Race`, `Platform`, `Puzzle`, `Stunts`, and `Survival`.
   - Sunrise is grouped by its source-listed mode buckets: `Race`, `Race Extreme`, `Crazy`, `Platform`, `Puzzle`, `Stunts`, and `Bonus Tracks`.
   - Nations ESWC is grouped as `Solo Campaign`, `Pro Campaign`, and `Bonus Campaign`.
-  - United Forever is grouped by official leaderboard campaign and environment where the map names encode one: `Race - <environment>`, `Platform`, `Puzzle`, `Stunts`, `Nations`, and `StarTrack - <environment>`.
+  - United Forever is grouped by official leaderboard campaign, then by environment where the map names encode one: `Race / <environment> / <tier>`, `Platform / <tier>`, `Puzzle / <tier>`, `Stunts / <tier>`, `Nations / <tier>`, and `StarTrack / <environment> / <tier>`.
   - Nations Forever and TrackMania 2 keep their environment-first grouping where that matches the visible campaign structure.
   - Trackmania 2020 is grouped as `Training` and `Seasonal Campaigns`; its maps are marked `Mixed` because official seasonal campaigns are explicitly described as varied styles rather than a single Stadium-only environment.
 
