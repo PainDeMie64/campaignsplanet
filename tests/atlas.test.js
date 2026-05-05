@@ -335,6 +335,7 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(survival.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tmo-survival-survival', true, 18]
   ]);
+  assert.equal(survival.campaigns[0].maps[0].y, survival.campaigns[0].titleHeight, 'hidden campaign title still reserves the usual top padding');
 
   const sunrise = buildFlatAtlasLayout({
     ...baseState(atlas),
@@ -346,6 +347,7 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(raceExtreme.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tms-race-extreme-extreme', true, 9]
   ]);
+  assert.equal(raceExtreme.campaigns[0].maps[0].y, raceExtreme.campaigns[0].titleHeight, 'Race Extreme maps keep campaign-title spacing');
 
   const nations = buildFlatAtlasLayout({
     ...baseState(atlas),
@@ -357,6 +359,7 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(pro.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tmn-stadium-pro', true, 10]
   ]);
+  assert.equal(pro.campaigns[0].maps[0].y, pro.campaigns[0].titleHeight, 'Pro maps keep campaign-title spacing');
   const bonus = buildFlatAtlasLayout({
     ...baseState(atlas),
     selectedGameId: 'tmn',
