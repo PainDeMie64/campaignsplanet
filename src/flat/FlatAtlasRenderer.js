@@ -272,6 +272,26 @@ export class FlatAtlasRenderer {
     for (const environment of game.environments) this.drawEnvironment(game, environment);
   }
 
+  drawTimeline(layout) {
+    const timeline = layout.timeline;
+    if (!timeline?.years?.length) return;
+    const state = this.store.getState();
+    this.ctx.strokeStyle = state.ui.theme === 'light' ? 'rgba(22, 33, 40, 0.32)' : 'rgba(248, 247, 230, 0.28)';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(timeline.x, timeline.top);
+    this.ctx.lineTo(timeline.x, timeline.bottom);
+    this.ctx.stroke();
+    for (const mark of timeline.years) {
+      const selected = mark.gameId === state.selectedGameId;
+      this.ctx.fillStyle = selected ? '#fffdf2' : state.ui.theme === 'light' ? '#22323a' : '#cdd9de';
+      this.ctx.beginPath();
+      this.ctx.arc(mark.x, mark.y, selected ? 7 : 5, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.drawText(String(mark.year), mark.x, mark.y - 22, FLAT_ATLAS_STYLE.timelineYearSize, this.ctx.fillStyle);
+    }
+  }
+
   render() {
     if (!this.ctx) return;
     const state = this.store.getState();
@@ -284,6 +304,7 @@ export class FlatAtlasRenderer {
     this.ctx.fillRect(0, 0, rect.width, rect.height);
     this.ctx.translate(this.offsetX, this.offsetY);
     this.ctx.scale(this.scale, this.scale);
+    this.drawTimeline(this.layout);
     for (const game of this.layout.games) this.drawGame(game);
     this.ctx.restore();
   }

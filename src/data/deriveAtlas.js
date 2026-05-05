@@ -1,3 +1,5 @@
+import { campaignGroupLabel } from './campaignGrouping.js';
+
 export function deriveAtlas(rawAtlas) {
   const games = rawAtlas.games.map((game) => ({ ...game }));
   const campaigns = rawAtlas.campaigns.map((campaign) => ({
@@ -15,7 +17,7 @@ export function deriveAtlas(rawAtlas) {
     game.campaignCount = gameCampaigns.length;
     game.mapCount = gameCampaigns.reduce((total, campaign) => total + campaign.maps.length, 0);
     game.activeCount = gameCampaigns.filter((campaign) => campaign.officialStatus === 'active').length;
-    game.environments = [...new Set(game.environments.concat(gameCampaigns.map((campaign) => campaign.environment)))];
+    game.environments = [...new Set(game.environments.concat(gameCampaigns.map(campaignGroupLabel)))];
   }
 
   for (const campaign of campaigns) {

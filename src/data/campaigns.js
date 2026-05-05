@@ -10,8 +10,20 @@ const CLASSIC_TIERS = [
 
 const SEASON_TIERS = CLASSIC_TIERS.map((tier) => ({ ...tier, count: 5 }));
 const ORIGINAL_TIERS = tierCounts({ white: 8, green: 8, blue: 8, red: 8, black: 5 });
-const NATIONS_TIERS = tierCounts({ white: 10, green: 10, blue: 10, red: 10, black: 5 });
 const UNITED_TIERS = tierCounts({ white: 5, green: 5, blue: 5, red: 5, black: 1 });
+
+const MODE = {
+  RACE: 'Race',
+  STUNT: 'Stunt',
+  PLATFORM: 'Platform',
+  PUZZLE: 'Puzzle',
+  CRAZY: 'Crazy',
+  SOLO: 'Solo Campaign',
+  PRO: 'Pro Campaign',
+  BONUS: 'Bonus Campaign',
+  SEASONAL: 'Seasonal Campaigns',
+  TRAINING: 'Training'
+};
 
 function tierCounts(counts) {
   return CLASSIC_TIERS.map((tier) => ({ ...tier, count: counts[tier.id] ?? tier.count }));
@@ -33,7 +45,7 @@ function medals(seed, index, difficulty) {
   };
 }
 
-function makeMaps({ campaignId, tier, environment, surface, nameForIndex }) {
+function makeMaps({ campaignId, tier, environment, surface, mode, category, nameForIndex }) {
   const seed = [...campaignId].reduce((total, char) => total + char.charCodeAt(0), 0) % 17;
   return Array.from({ length: tier.count }, (_, index) => ({
     id: `${campaignId}-${String(index + 1).padStart(2, '0')}`,
@@ -42,8 +54,10 @@ function makeMaps({ campaignId, tier, environment, surface, nameForIndex }) {
     official: true,
     environment,
     surface,
+    mode,
+    category,
     difficulty: Math.min(10, Math.max(1, tier.difficulty + Math.floor(index / 6))),
-    tags: [environment.toLowerCase(), surface, tier.id, tier.code],
+    tags: [environment.toLowerCase(), surface, mode?.toLowerCase(), category?.toLowerCase(), tier.id, tier.code].filter(Boolean),
     medals: medals(seed, index, tier.difficulty),
     tmxId: null
   }));
@@ -54,7 +68,11 @@ function tierCampaign({
   gameId,
   family,
   environment,
+  mode = MODE.RACE,
+  category = environment,
   tier,
+  shortLabel = tier.code,
+  order,
   releaseDate,
   era,
   status = 'legacy',
@@ -72,12 +90,16 @@ function tierCampaign({
     releaseDate,
     era,
     environment,
+    mode,
+    category,
     tier: tier.name,
     tierCode: tier.code,
+    shortLabel,
     tierColor: tier.color,
     officialStatus: status,
     official: true,
     difficulty: tier.difficulty,
+    order: order ?? tier.difficulty,
     lat,
     lon,
     region,
@@ -87,18 +109,24 @@ function tierCampaign({
       tier,
       environment,
       surface,
+      mode,
+      category,
       nameForIndex
     })
   };
 }
 
-function classicSeries({ gameId, family, environment, baseId, releaseDate, era, status, points, region, surface, description, tiers = CLASSIC_TIERS, mapNameForIndex }) {
+function classicSeries({ gameId, family, environment, mode = MODE.RACE, category = environment, baseId, releaseDate, era, status, points, region, surface, description, tiers = CLASSIC_TIERS, shortLabelForTier, orderForTier, mapNameForIndex }) {
   return tiers.map((tier, index) => tierCampaign({
     id: `${baseId}-${tier.id}`,
     gameId,
     family,
     environment,
+    mode,
+    category,
     tier,
+    shortLabel: shortLabelForTier ? shortLabelForTier({ tier, environment, index }) : tier.code,
+    order: orderForTier ? orderForTier({ tier, environment, index }) : index,
     releaseDate,
     era,
     status,
@@ -113,7 +141,7 @@ function classicSeries({ gameId, family, environment, baseId, releaseDate, era, 
   }));
 }
 
-function explicitMaps({ campaignId, names, environment, surface, difficulty, tier }) {
+function explicitMaps({ campaignId, names, environment, surface, mode, category, difficulty, tier }) {
   const seed = [...campaignId].reduce((total, char) => total + char.charCodeAt(0), 0) % 17;
   return names.map((name, index) => ({
     id: `${campaignId}-${String(index + 1).padStart(2, '0')}`,
@@ -122,8 +150,10 @@ function explicitMaps({ campaignId, names, environment, surface, difficulty, tie
     official: true,
     environment,
     surface,
+    mode,
+    category,
     difficulty,
-    tags: [environment.toLowerCase(), surface, tier.id, tier.code],
+    tags: [environment.toLowerCase(), surface, mode?.toLowerCase(), category?.toLowerCase(), tier.id, tier.code].filter(Boolean),
     medals: medals(seed, index, difficulty),
     tmxId: null
   }));
@@ -134,7 +164,11 @@ function explicitCampaign({
   gameId,
   family,
   environment,
+  mode = MODE.RACE,
+  category = environment,
   tier,
+  shortLabel = tier.code,
+  order,
   releaseDate,
   era,
   status = 'legacy',
@@ -152,12 +186,16 @@ function explicitCampaign({
     releaseDate,
     era,
     environment,
+    mode,
+    category,
     tier: tier.name,
     tierCode: tier.code,
+    shortLabel,
     tierColor: tier.color,
     officialStatus: status,
     official: true,
     difficulty: tier.difficulty,
+    order: order ?? tier.difficulty,
     lat,
     lon,
     region,
@@ -167,6 +205,8 @@ function explicitCampaign({
       names: mapNames,
       environment,
       surface,
+      mode,
+      category,
       difficulty: tier.difficulty,
       tier
     })
@@ -195,8 +235,12 @@ function seasonSeries({ gameId, seasonName, baseId, releaseDate, status, points 
     id: `${baseId}-${tier.id}`,
     gameId,
     family: seasonName,
-    environment: 'Stadium',
+    environment: 'Mixed',
+    mode: MODE.RACE,
+    category: seasonName === 'Training' ? MODE.TRAINING : MODE.SEASONAL,
     tier,
+    shortLabel: seasonName === 'Training' ? tier.name.replace(' Series', '') : `${seasonName} ${tier.name.replace(' Series', '')}`,
+    order: tierIndex,
     releaseDate,
     era: 'Modern',
     status,
@@ -226,6 +270,64 @@ function tmnfMapName({ tier, mapIndex }) {
   const number = String(mapIndex + 1).padStart(2, '0');
   const type = TMNF_MAP_TYPES[tier.code]?.[mapIndex] ?? 'Race';
   return `${tier.code}${number}-${type}`;
+}
+
+const NATIONS_ESWC_LETTERS = 'ABCDEFGHI'.split('').map((code, index) => ({
+  id: `group-${code.toLowerCase()}`,
+  code,
+  name: `Group ${code}`,
+  count: 10,
+  difficulty: Math.min(9, index + 1),
+  color: CLASSIC_TIERS[Math.min(CLASSIC_TIERS.length - 1, Math.floor(index / 2))].color
+}));
+
+const NATIONS_ESWC_SPECIAL_TIERS = [
+  { id: 'pro', code: 'PRO', name: 'Pro', count: 10, difficulty: 8, color: '#ff4d6d' },
+  { id: 'bonus', code: 'BONUS', name: 'Bonus', count: 20, difficulty: 6, color: '#ffd166' }
+];
+
+function nationsEswcSeries({ points }) {
+  const soloCampaigns = NATIONS_ESWC_LETTERS.map((tier, index) => tierCampaign({
+    id: `tmn-stadium-${tier.id}`,
+    gameId: 'tmn',
+    family: 'Stadium',
+    environment: 'Stadium',
+    mode: MODE.RACE,
+    category: MODE.SOLO,
+    tier,
+    shortLabel: tier.code,
+    order: index,
+    releaseDate: '2006-01-27',
+    era: 'Nations',
+    status: 'legacy',
+    lat: points[Math.min(index, points.length - 1)].lat,
+    lon: points[Math.min(index, points.length - 1)].lon,
+    region: MODE.SOLO,
+    surface: 'stadium',
+    description: 'TrackMania Nations ESWC solo campaign group.',
+    nameForIndex: (mapIndex) => `${tier.code}-${mapIndex}`
+  }));
+  const specialCampaigns = NATIONS_ESWC_SPECIAL_TIERS.map((tier, index) => tierCampaign({
+    id: `tmn-stadium-${tier.id}`,
+    gameId: 'tmn',
+    family: 'Stadium',
+    environment: 'Stadium',
+    mode: MODE.RACE,
+    category: tier.id === 'pro' ? MODE.PRO : MODE.BONUS,
+    tier,
+    shortLabel: tier.code,
+    order: index,
+    releaseDate: '2006-01-27',
+    era: 'Nations',
+    status: 'legacy',
+    lat: points.at(-1).lat,
+    lon: points.at(-1).lon,
+    region: tier.id === 'pro' ? MODE.PRO : MODE.BONUS,
+    surface: 'stadium',
+    description: `TrackMania Nations ESWC ${tier.name.toLowerCase()} campaign maps.`,
+    nameForIndex: (mapIndex) => `${tier.code}-${mapIndex}`
+  }));
+  return [...soloCampaigns, ...specialCampaigns];
 }
 
 const points = (...items) => items.map(([lat, lon]) => ({ lat, lon }));
@@ -322,7 +424,11 @@ function sunriseRaceSeries({ gameId, family, environment, baseId, releaseDate, p
         gameId,
         family,
         environment,
+        mode: MODE.RACE,
+        category: MODE.RACE,
         tier: { ...tier, count: mapNames.length },
+        shortLabel: `${environment} ${tier.name.replace(' Race', '')}`,
+        order: index,
         releaseDate,
         era: 'Sunrise',
         lat: points[index].lat,
@@ -343,7 +449,10 @@ function originalRaceCampaign({ environment, baseId, tierCode, lat, lon, surface
     gameId: 'tmo',
     family: environment,
     environment,
+    mode: MODE.RACE,
+    category: MODE.RACE,
     tier,
+    shortLabel: `${environment} ${tier.code}`,
     releaseDate: '2003-11-21',
     era: 'Classic',
     lat,
@@ -366,8 +475,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2003,
       status: 'legacy',
       palette: { land: '#665745', coast: '#f1d28b', accent: '#ffcf5f', ocean: '#263846' },
-      terrain: 'three original environments split by A-E official series',
-      environments: ['Snow', 'Desert', 'Rally'],
+      terrain: 'original solo race campaign using Snow, Desert, and Rally maps',
+      environments: [MODE.RACE],
       regionLabelOffsets: {
         Snow: { dx: -25, dy: -54 },
         Desert: { dx: -65, dy: 8 },
@@ -384,8 +493,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2005,
       status: 'legacy',
       palette: { land: '#34677e', coast: '#ffd166', accent: '#ff8e3c', ocean: '#18303d' },
-      terrain: 'Island, Coast, and Bay regions divided into A-E official series',
-      environments: ['Island', 'Coast', 'Bay'],
+      terrain: 'Sunrise solo race campaign using Island, Bay, and Coast maps',
+      environments: [MODE.RACE],
       regionLabelOffsets: {
         Island: { dx: 80, dy: -70 },
         Bay: { dx: -134, dy: 54 },
@@ -402,8 +511,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2006,
       status: 'legacy',
       palette: { land: '#3a6372', coast: '#e7eef5', accent: '#48b4f8', ocean: '#213847' },
-      terrain: 'single Stadium continent with A-E series progression',
-      environments: ['Stadium'],
+      terrain: 'single Stadium campaign with A-I solo groups plus Pro and Bonus campaigns',
+      environments: [MODE.SOLO, MODE.PRO, MODE.BONUS],
       regionLabelOffsets: {
         Stadium: { dx: 0, dy: -56 }
       },
@@ -418,8 +527,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2008,
       status: 'legacy',
       palette: { land: '#485f59', coast: '#f3f0d7', accent: '#61d394', ocean: '#20343f' },
-      terrain: 'seven-environment federation laid out by official A-E series',
-      environments: ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium'],
+      terrain: 'United Forever solo race campaign across seven environments',
+      environments: [MODE.RACE],
       regionLabelOffsets: {
         Snow: { dx: -80, dy: -60 },
         Desert: { dx: 0, dy: -50 },
@@ -476,7 +585,7 @@ export const CAMPAIGN_ATLAS = {
       status: 'active',
       palette: { land: '#394458', coast: '#b7f7ff', accent: '#35f2a5', ocean: '#172935' },
       terrain: 'current seasonal campaign by default, with older seasons available after selecting the continent',
-      environments: ['Stadium'],
+      environments: [MODE.SEASONAL, MODE.TRAINING],
       regionLabelOffsets: {
         'Spring 2026 White Series': { dx: -112, dy: -8 },
         'Spring 2026 Green Series': { dx: 112, dy: -8 },
@@ -509,15 +618,15 @@ export const CAMPAIGN_ATLAS = {
     ...sunriseRaceSeries({ gameId: 'tms', family: 'Bay', environment: 'Bay', baseId: 'tms-bay', releaseDate: '2005-04-06', points: tmsBay, region: 'Bay', surface: 'city', description: 'Sunrise Bay official race maps from Nadeo.' }),
     ...sunriseRaceSeries({ gameId: 'tms', family: 'Coast', environment: 'Coast', baseId: 'tms-coast', releaseDate: '2005-04-06', points: tmsCoast, region: 'Coast', surface: 'road', description: 'Sunrise Coast official race maps from Nadeo.' }),
 
-    ...classicSeries({ gameId: 'tmn', family: 'Stadium', environment: 'Stadium', baseId: 'tmn-stadium', releaseDate: '2006-01-27', era: 'Nations', points: tmnStadium, region: 'Stadium', surface: 'stadium', description: 'TrackMania Nations Stadium official race progression.', tiers: NATIONS_TIERS, mapNameForIndex: ({ tier, mapIndex }) => `${tier.code}-${mapIndex}` }),
+    ...nationsEswcSeries({ points: tmnStadium }),
 
-    ...classicSeries({ gameId: 'tmuf', family: 'Snow', environment: 'Snow', baseId: 'tmuf-snow', releaseDate: '2008-04-16', era: 'Forever', points: tmufSnow, region: 'Snow', surface: 'snow', description: 'United Forever Snow official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Desert', environment: 'Desert', baseId: 'tmuf-desert', releaseDate: '2008-04-16', era: 'Forever', points: tmufDesert, region: 'Desert', surface: 'road', description: 'United Forever Desert official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Rally', environment: 'Rally', baseId: 'tmuf-rally', releaseDate: '2008-04-16', era: 'Forever', points: tmufRally, region: 'Rally', surface: 'road', description: 'United Forever Rally official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Island', environment: 'Island', baseId: 'tmuf-island', releaseDate: '2008-04-16', era: 'Forever', points: tmufIsland, region: 'Island', surface: 'asphalt', description: 'United Forever Island official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Coast', environment: 'Coast', baseId: 'tmuf-coast', releaseDate: '2008-04-16', era: 'Forever', points: tmufCoast, region: 'Coast', surface: 'road', description: 'United Forever Coast official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Bay', environment: 'Bay', baseId: 'tmuf-bay', releaseDate: '2008-04-16', era: 'Forever', points: tmufBay, region: 'Bay', surface: 'city', description: 'United Forever Bay official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Stadium', environment: 'Stadium', baseId: 'tmuf-stadium', releaseDate: '2008-04-16', era: 'Forever', points: tmufStadium, region: 'Stadium', surface: 'stadium', description: 'United Forever Stadium official race progression.', tiers: UNITED_TIERS, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Snow', environment: 'Snow', category: MODE.RACE, baseId: 'tmuf-snow', releaseDate: '2008-04-16', era: 'Forever', points: tmufSnow, region: 'Snow', surface: 'snow', description: 'United Forever Snow official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Desert', environment: 'Desert', category: MODE.RACE, baseId: 'tmuf-desert', releaseDate: '2008-04-16', era: 'Forever', points: tmufDesert, region: 'Desert', surface: 'road', description: 'United Forever Desert official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Rally', environment: 'Rally', category: MODE.RACE, baseId: 'tmuf-rally', releaseDate: '2008-04-16', era: 'Forever', points: tmufRally, region: 'Rally', surface: 'road', description: 'United Forever Rally official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Island', environment: 'Island', category: MODE.RACE, baseId: 'tmuf-island', releaseDate: '2008-04-16', era: 'Forever', points: tmufIsland, region: 'Island', surface: 'asphalt', description: 'United Forever Island official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Coast', environment: 'Coast', category: MODE.RACE, baseId: 'tmuf-coast', releaseDate: '2008-04-16', era: 'Forever', points: tmufCoast, region: 'Coast', surface: 'road', description: 'United Forever Coast official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Bay', environment: 'Bay', category: MODE.RACE, baseId: 'tmuf-bay', releaseDate: '2008-04-16', era: 'Forever', points: tmufBay, region: 'Bay', surface: 'city', description: 'United Forever Bay official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...classicSeries({ gameId: 'tmuf', family: 'Stadium', environment: 'Stadium', category: MODE.RACE, baseId: 'tmuf-stadium', releaseDate: '2008-04-16', era: 'Forever', points: tmufStadium, region: 'Stadium', surface: 'stadium', description: 'United Forever Stadium official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
 
     ...classicSeries({ gameId: 'tmnf', family: 'Stadium', environment: 'Stadium', baseId: 'tmnf-stadium', releaseDate: '2008-04-16', era: 'Forever', status: 'active', points: tmnfStadium, region: 'Stadium', surface: 'stadium', description: 'Nations Forever Stadium official A-E progression.', mapNameForIndex: tmnfMapName }),
 

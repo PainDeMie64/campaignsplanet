@@ -1,4 +1,5 @@
 import { visibleLiveCampaignIds } from './liveHistory.js';
+import { campaignGroupLabel } from './campaignGrouping.js';
 
 export function getSelectedGame(state) {
   return state.atlas.gameById[state.selectedGameId] ?? state.atlas.games[0] ?? null;
@@ -18,7 +19,7 @@ export function getSelectedCampaign(state) {
   const game = getSelectedGame(state);
   return state.atlas.campaigns.find((campaign) => {
     if (campaign.gameId !== game?.id) return false;
-    if (state.selectedRegion && campaign.environment !== state.selectedRegion) return false;
+    if (state.selectedRegion && campaignGroupLabel(campaign) !== state.selectedRegion) return false;
     return isCampaignVisible(state, campaign, visibleLiveIds);
   }) ?? null;
 }
@@ -49,7 +50,9 @@ export function filterCampaigns(state) {
     const haystack = [
       campaign.name,
       campaign.game.name,
+      campaignGroupLabel(campaign),
       campaign.environment,
+      campaign.mode,
       campaign.tier,
       campaign.region,
       ...campaign.maps.map((map) => map.name)
@@ -68,6 +71,7 @@ export function filterMaps(state) {
       map.name,
       map.environment,
       map.surface,
+      campaignGroupLabel(map.campaign),
       map.campaign.name,
       map.campaign.tier,
       map.campaign.region,

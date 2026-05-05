@@ -5,7 +5,8 @@ import { deriveAtlas } from '../src/data/deriveAtlas.js';
 import { filterCampaigns, filterMaps } from '../src/data/selectors.js';
 import { normalizeAtlasPayload, validateAtlasShape } from '../src/data/liveAtlas.js';
 import { visibleLiveCampaignIds } from '../src/data/liveHistory.js';
-import { buildFlatAtlasLayout } from '../src/flat/flatAtlasLayout.js';
+import { campaignGroupLabel } from '../src/data/campaignGrouping.js';
+import { buildFlatAtlasLayout, GAME_RELEASE_YEARS } from '../src/flat/flatAtlasLayout.js';
 import { displayMapLabel } from '../src/flat/textLabels.js';
 
 function baseState(atlas) {
@@ -69,6 +70,29 @@ test('map search returns map rows with campaign references', () => {
   assert.ok(maps.some((map) => map.name === 'A06-Obstacle' && map.campaign));
 });
 
+test('atlas organization matches source-backed campaign buckets', () => {
+  const atlas = deriveAtlas(CAMPAIGN_ATLAS);
+  const byGame = (gameId) => atlas.campaigns.filter((campaign) => campaign.gameId === gameId);
+  const groupsFor = (gameId) => [...new Set(byGame(gameId).map(campaignGroupLabel))];
+
+  assert.deepEqual(groupsFor('tmn'), ['Solo Campaign', 'Pro Campaign', 'Bonus Campaign']);
+  assert.equal(byGame('tmn').reduce((sum, campaign) => sum + campaign.maps.length, 0), 120);
+  assert.deepEqual(
+    byGame('tmn').filter((campaign) => campaign.category === 'Solo Campaign').map((campaign) => campaign.tierCode),
+    'ABCDEFGHI'.split('')
+  );
+  assert.equal(atlas.campaignById['tmn-stadium-pro'].maps.length, 10);
+  assert.equal(atlas.campaignById['tmn-stadium-bonus'].maps.length, 20);
+
+  assert.deepEqual(groupsFor('tmuf'), ['Race']);
+  assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.deepEqual([...new Set(byGame('tmuf').map((campaign) => campaign.environment))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+
+  assert.deepEqual(groupsFor('tm2020'), ['Training', 'Seasonal Campaigns']);
+  assert.equal(atlas.campaignById['tm2020-spring-2026-white'].category, 'Seasonal Campaigns');
+  assert.equal(atlas.campaignById['tm2020-training-white'].category, 'Training');
+});
+
 test('live atlas validation rejects broken payloads', () => {
   const validation = validateAtlasShape({ games: [{ id: 'x' }], campaigns: [{ id: 'c', gameId: 'missing' }] });
   assert.equal(validation.ok, false);
@@ -103,12 +127,15 @@ test('map display labels never wrap', () => {
 
 test('flat atlas layout is generated bottom-up from single-line map labels', () => {
   const atlas = deriveAtlas(CAMPAIGN_ATLAS);
-  const state = baseState(atlas);
+  const state = {
+    ...baseState(atlas),
+    selectedGameId: 'tm2',
+    selectedRegion: 'Canyon',
+    selectedCampaignId: 'tm2-canyon-white'
+  };
   const layout = buildFlatAtlasLayout(state, deterministicTextWidth);
   assert.equal(layout.games.length, atlas.games.length, 'flat atlas creates one continent per game');
-  assert.equal(flattenLayoutMaps(layout).length, layout.games.reduce((sum, game) => (
-    sum + visibleCampaignsForGame(state, game.game).reduce((count, campaign) => count + campaign.maps.length, 0)
-  ), 0));
+  assert.equal(flattenLayoutMaps(layout).length, atlas.campaignById['tm2-canyon-white'].maps.length);
   for (const game of layout.games) {
     assert.ok(game.width > 0 && game.height > 0, `${game.game.id} game continent has area`);
     for (const environment of game.environments) {
@@ -117,7 +144,7 @@ test('flat atlas layout is generated bottom-up from single-line map labels', () 
       assert.ok(environment.x + environment.width <= game.width, `${environment.environment} stays inside game width`);
       assert.ok(environment.y + environment.height <= game.height, `${environment.environment} stays inside game height`);
       for (const campaign of environment.campaigns) {
-        assert.equal(campaign.campaign.environment, environment.environment);
+        assert.equal(campaignGroupLabel(campaign.campaign), environment.environment);
         assert.ok(campaign.x >= 0 && campaign.y >= 0, `${campaign.campaign.id} stays inside environment origin`);
         assert.ok(campaign.x + campaign.width <= environment.width, `${campaign.campaign.id} stays inside environment width`);
         assert.ok(campaign.y + campaign.height <= environment.height, `${campaign.campaign.id} stays inside environment height`);
@@ -134,13 +161,50 @@ test('flat atlas layout is generated bottom-up from single-line map labels', () 
   }
 });
 
-test('flat atlas creates environment sections for every visible campaign environment', () => {
+test('flat atlas expands only one game/environment/campaign path', () => {
   const atlas = deriveAtlas(CAMPAIGN_ATLAS);
-  const state = baseState(atlas);
+  const state = {
+    ...baseState(atlas),
+    selectedGameId: 'tm2',
+    selectedRegion: 'Canyon',
+    selectedCampaignId: 'tm2-canyon-white'
+  };
   const layout = buildFlatAtlasLayout(state, deterministicTextWidth);
+  assert.deepEqual(layout.games.filter((game) => game.expanded).map((game) => game.game.id), ['tm2']);
   for (const game of layout.games) {
-    const expected = new Set(visibleCampaignsForGame(state, game.game).map((campaign) => campaign.environment));
+    if (game.game.id !== 'tm2') {
+      assert.equal(game.environments.length, 0, `${game.game.id} has no expanded environments`);
+      continue;
+    }
+    const expected = new Set(visibleCampaignsForGame(state, game.game).map(campaignGroupLabel));
     const actual = new Set(game.environments.map((environment) => environment.environment));
-    assert.deepEqual(actual, expected, `${game.game.id} environment categories match visible campaign data`);
+    assert.deepEqual(actual, expected, 'selected game exposes its environment categories');
+    assert.deepEqual(game.environments.filter((environment) => environment.expanded).map((environment) => environment.environment), ['Canyon']);
+    for (const environment of game.environments) {
+      if (environment.environment !== 'Canyon') {
+        assert.equal(environment.campaigns.length, 0, `${environment.environment} is collapsed`);
+        continue;
+      }
+      assert.deepEqual(environment.campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tm2-canyon-white']);
+      for (const campaign of environment.campaigns) {
+        if (campaign.campaign.id === 'tm2-canyon-white') assert.ok(campaign.maps.length > 0, 'selected campaign exposes maps');
+        else assert.equal(campaign.maps.length, 0, `${campaign.campaign.id} is collapsed`);
+      }
+    }
+  }
+});
+
+test('flat atlas lays games out as a chronological timeline', () => {
+  const atlas = deriveAtlas(CAMPAIGN_ATLAS);
+  const layout = buildFlatAtlasLayout(baseState(atlas), deterministicTextWidth);
+  const gameIds = layout.games.map((game) => game.game.id);
+  assert.deepEqual(gameIds, ['tmo', 'tms', 'tmn', 'tmnf', 'tmuf', 'tm2', 'tm2020']);
+  assert.deepEqual(
+    layout.timeline.years.map((mark) => [mark.gameId, mark.year]),
+    gameIds.map((gameId) => [gameId, GAME_RELEASE_YEARS[gameId]])
+  );
+  for (let index = 1; index < layout.games.length; index++) {
+    assert.ok(layout.games[index].y > layout.games[index - 1].y, `${layout.games[index].game.id} appears after ${layout.games[index - 1].game.id}`);
+    assert.ok(layout.timeline.years[index].y > layout.timeline.years[index - 1].y, `${layout.games[index].game.id} timeline mark is chronological`);
   }
 });

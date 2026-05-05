@@ -1,4 +1,5 @@
 import { visibleLiveCampaignIds } from '../data/liveHistory.js';
+import { campaignGroupLabel } from '../data/campaignGrouping.js';
 import { displayMapLabel } from './textLabels.js';
 
 export const FLAT_ATLAS_STYLE = {
@@ -15,8 +16,26 @@ export const FLAT_ATLAS_STYLE = {
   environmentGap: 12,
   gamePad: 16,
   gameGap: 26,
+  gameCollapsedWidth: 360,
+  gameCollapsedHeight: 58,
+  environmentCollapsedHeight: 42,
+  campaignCollapsedHeight: 34,
+  timelinePadX: 70,
+  timelinePadY: 34,
+  timelineGap: 34,
+  timelineYearSize: 18,
   minMapWidth: 72,
   minMapHeight: 34
+};
+
+export const GAME_RELEASE_YEARS = {
+  tmo: 2003,
+  tms: 2005,
+  tmn: 2006,
+  tmnf: 2008,
+  tmuf: 2008,
+  tm2: 2011,
+  tm2020: 2020
 };
 
 function groupBy(items, keyFor) {
@@ -33,8 +52,10 @@ function groupBy(items, keyFor) {
 function sortCampaigns(campaigns) {
   return [...campaigns].sort((a, b) => (
     a.gameId.localeCompare(b.gameId) ||
-    String(a.environment).localeCompare(String(b.environment)) ||
+    String(campaignGroupLabel(a)).localeCompare(String(campaignGroupLabel(b))) ||
+    ((a.order ?? a.difficulty) - (b.order ?? b.difficulty)) ||
     (a.difficulty - b.difficulty) ||
+    String(a.environment).localeCompare(String(b.environment)) ||
     a.id.localeCompare(b.id)
   ));
 }
@@ -96,9 +117,21 @@ function bestMapGrid(mapCells, targetAspect = 1.55) {
   return best;
 }
 
-function layoutCampaign(campaign, measureText, style) {
-  const title = campaign.tierCode ?? campaign.name;
+function layoutCampaign(campaign, measureText, style, expanded = false) {
+  const title = campaign.shortLabel ?? campaign.tierCode ?? campaign.name;
   const titleWidth = textWidth(measureText, title, style.campaignTitleSize, 900) + style.campaignPad * 2;
+  if (!expanded) {
+    const width = Math.max(style.minMapWidth, titleWidth);
+    return {
+      campaign,
+      title,
+      width,
+      height: style.campaignCollapsedHeight,
+      titleHeight: style.campaignCollapsedHeight,
+      expanded: false,
+      maps: []
+    };
+  }
   const mapCells = campaign.maps.map((map) => {
     const label = displayMapLabel(map.name);
     const labelWidth = textWidth(measureText, label, style.mapLabelSize, 900);
@@ -120,6 +153,7 @@ function layoutCampaign(campaign, measureText, style) {
     width,
     height,
     titleHeight,
+    expanded: true,
     mapCells,
     grid,
     maps: grid.placements.map((placement) => ({
@@ -133,8 +167,26 @@ function layoutCampaign(campaign, measureText, style) {
   };
 }
 
-function layoutEnvironment(game, environment, campaigns, measureText, style) {
-  const campaignLayouts = sortCampaigns(campaigns).map((campaign) => layoutCampaign(campaign, measureText, style));
+function layoutEnvironment(game, environment, campaigns, measureText, style, expanded = false, selectedCampaignId = null) {
+  const environmentTitleWidth = textWidth(measureText, environment, style.environmentTitleSize, 900);
+  if (!expanded) {
+    const width = Math.max(180, environmentTitleWidth + style.environmentPad * 2);
+    return {
+      environment,
+      x: 0,
+      y: 0,
+      width,
+      height: style.environmentCollapsedHeight,
+      title: environment,
+      titleX: width / 2,
+      titleY: style.environmentCollapsedHeight / 2,
+      expanded: false,
+      campaigns: []
+    };
+  }
+  const campaignLayouts = sortCampaigns(campaigns).map((campaign) => (
+    layoutCampaign(campaign, measureText, style, campaign.id === selectedCampaignId)
+  ));
   const targetWidth = Math.max(
     360,
     Math.sqrt(campaignLayouts.reduce((sum, campaign) => sum + campaign.width * campaign.height, 0)) * 1.55
@@ -154,7 +206,6 @@ function layoutEnvironment(game, environment, campaigns, measureText, style) {
   }
   if (current.length) rows.push(current);
 
-  const environmentTitleWidth = textWidth(measureText, environment, style.environmentTitleSize, 900);
   const rowSizes = rows.map((row) => ({
     width: row.reduce((sum, campaign, index) => sum + campaign.width + (index ? style.campaignGap : 0), 0),
     height: Math.max(...row.map((campaign) => campaign.height), 1)
@@ -185,14 +236,41 @@ function layoutEnvironment(game, environment, campaigns, measureText, style) {
     title: environment,
     titleX: style.environmentPad + contentWidth / 2,
     titleY: style.environmentPad + style.environmentTitleSize,
+    expanded: true,
     campaigns: campaignPlacements
   };
 }
 
-function layoutGame(game, campaigns, measureText, style) {
-  const groups = groupBy(campaigns, (campaign) => campaign.environment || 'Official');
+function layoutGame(game, campaigns, measureText, style, selectedPath) {
+  const releaseYear = GAME_RELEASE_YEARS[game.id] ?? game.releaseYear ?? Number.parseInt(game.releaseYear, 10) ?? 0;
+  const gameTitleWidth = textWidth(measureText, game.name, style.gameTitleSize, 900);
+  if (game.id !== selectedPath.gameId) {
+    const width = Math.max(style.gameCollapsedWidth, gameTitleWidth + style.gamePad * 2);
+    return {
+      game,
+      x: 0,
+      y: 0,
+      width,
+      height: style.gameCollapsedHeight,
+      releaseYear,
+      title: game.name,
+      titleX: width / 2,
+      titleY: style.gameCollapsedHeight / 2,
+      expanded: false,
+      environments: []
+    };
+  }
+  const groups = groupBy(campaigns, campaignGroupLabel);
   const environmentLayouts = environmentOrder(game, groups).map((environment) => (
-    layoutEnvironment(game, environment, groups.get(environment), measureText, style)
+    layoutEnvironment(
+      game,
+      environment,
+      groups.get(environment),
+      measureText,
+      style,
+      environment === selectedPath.environment,
+      selectedPath.campaignId
+    )
   ));
   const targetWidth = Math.max(
     520,
@@ -213,7 +291,6 @@ function layoutGame(game, campaigns, measureText, style) {
   }
   if (current.length) rows.push(current);
 
-  const gameTitleWidth = textWidth(measureText, game.name, style.gameTitleSize, 900);
   const rowSizes = rows.map((row) => ({
     width: row.reduce((sum, environment, index) => sum + environment.width + (index ? style.environmentGap : 0), 0),
     height: Math.max(...row.map((environment) => environment.height), 1)
@@ -241,52 +318,60 @@ function layoutGame(game, campaigns, measureText, style) {
     y: 0,
     width,
     height,
+    releaseYear,
     title: game.name,
     titleX: style.gamePad + contentWidth / 2,
     titleY: style.gamePad + style.gameTitleSize,
+    expanded: true,
     environments: placedEnvironments
   };
 }
 
 export function buildFlatAtlasLayout(state, measureText, style = FLAT_ATLAS_STYLE) {
-  const games = state.atlas.games.map((game) => layoutGame(game, visibleCampaigns(state, game), measureText, style));
-  const targetWidth = Math.max(900, Math.sqrt(games.reduce((sum, game) => sum + game.width * game.height, 0)) * 1.4);
-  const rows = [];
-  let current = [];
-  let currentWidth = 0;
-  for (const game of games) {
-    const nextWidth = currentWidth + (current.length ? style.gameGap : 0) + game.width;
-    if (current.length && nextWidth > targetWidth) {
-      rows.push(current);
-      current = [];
-      currentWidth = 0;
-    }
-    current.push(game);
-    currentWidth += (current.length > 1 ? style.gameGap : 0) + game.width;
-  }
-  if (current.length) rows.push(current);
-
-  const rowSizes = rows.map((row) => ({
-    width: row.reduce((sum, game, index) => sum + game.width + (index ? style.gameGap : 0), 0),
-    height: Math.max(...row.map((game) => game.height), 1)
-  }));
-  const width = Math.max(...rowSizes.map((row) => row.width), 1);
-  const height = rowSizes.reduce((sum, row, index) => sum + row.height + (index ? style.gameGap : 0), 0);
+  const selectedPath = {
+    gameId: state.selectedGameId ?? state.atlas.games[0]?.id ?? null,
+    environment: state.selectedRegion ?? null,
+    campaignId: state.selectedCampaignId ?? null
+  };
+  const games = state.atlas.games
+    .map((game) => layoutGame(game, visibleCampaigns(state, game), measureText, style, selectedPath))
+    .sort((a, b) => (a.releaseYear - b.releaseYear) || a.game.id.localeCompare(b.game.id));
+  const yearWidth = Math.max(
+    ...games.map((game) => textWidth(measureText, String(game.releaseYear), style.timelineYearSize, 900)),
+    1
+  );
+  const width = style.timelinePadX * 2 + yearWidth + Math.max(...games.map((game) => game.width), 1);
+  const height = style.timelinePadY * 2 +
+    games.reduce((sum, game, index) => sum + game.height + (index ? style.timelineGap : 0), 0);
   const placedGames = [];
-  let y = 0;
-  rows.forEach((row, rowIndex) => {
-    const rowSize = rowSizes[rowIndex];
-    let x = (width - rowSize.width) / 2;
-    for (const game of row) {
-      placedGames.push({ ...game, x, y });
-      x += game.width + style.gameGap;
-    }
-    y += rowSize.height + style.gameGap;
-  });
+  const timelineX = style.timelinePadX + yearWidth / 2;
+  const gameX = style.timelinePadX + yearWidth + style.gameGap;
+  let y = style.timelinePadY;
+  for (const game of games) {
+    placedGames.push({
+      ...game,
+      x: gameX,
+      y,
+      yearX: timelineX,
+      yearY: y + Math.min(game.height / 2, style.gamePad + style.gameTitleSize)
+    });
+    y += game.height + style.timelineGap;
+  }
 
   return {
     width,
     height,
+    timeline: {
+      x: timelineX,
+      top: placedGames[0]?.yearY ?? style.timelinePadY,
+      bottom: placedGames.at(-1)?.yearY ?? style.timelinePadY,
+      years: placedGames.map((game) => ({
+        gameId: game.game.id,
+        year: game.releaseYear,
+        x: game.yearX,
+        y: game.yearY
+      }))
+    },
     games: placedGames,
     style
   };
