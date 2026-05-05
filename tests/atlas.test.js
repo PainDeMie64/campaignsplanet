@@ -6,7 +6,7 @@ import { filterCampaigns, filterMaps } from '../src/data/selectors.js';
 import { normalizeAtlasPayload, validateAtlasShape } from '../src/data/liveAtlas.js';
 import { visibleLiveCampaignIds } from '../src/data/liveHistory.js';
 import { campaignGroupLabel } from '../src/data/campaignGrouping.js';
-import { buildFlatAtlasLayout, GAME_RELEASE_YEARS } from '../src/flat/flatAtlasLayout.js';
+import { buildFlatAtlasLayout, FLAT_ATLAS_STYLE, GAME_RELEASE_YEARS } from '../src/flat/flatAtlasLayout.js';
 import { displayMapLabel } from '../src/flat/textLabels.js';
 
 function baseState(atlas) {
@@ -335,7 +335,8 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(survival.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tmo-survival-survival', true, 18]
   ]);
-  assert.equal(survival.campaigns[0].maps[0].y, survival.campaigns[0].titleHeight, 'hidden campaign title still reserves the usual top padding');
+  assert.equal(survival.campaigns[0].maps[0].y, survival.campaigns[0].titleHeight, 'hidden campaign title uses normal border padding');
+  assert.equal(survival.campaigns[0].titleHeight, FLAT_ATLAS_STYLE.campaignPad);
 
   const sunrise = buildFlatAtlasLayout({
     ...baseState(atlas),
@@ -347,7 +348,8 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(raceExtreme.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tms-race-extreme-extreme', true, 9]
   ]);
-  assert.equal(raceExtreme.campaigns[0].maps[0].y, raceExtreme.campaigns[0].titleHeight, 'Race Extreme maps keep campaign-title spacing');
+  assert.equal(raceExtreme.campaigns[0].maps[0].y, raceExtreme.campaigns[0].titleHeight, 'Race Extreme maps use normal border padding');
+  assert.equal(raceExtreme.campaigns[0].titleHeight, FLAT_ATLAS_STYLE.campaignPad);
 
   const nations = buildFlatAtlasLayout({
     ...baseState(atlas),
@@ -359,7 +361,8 @@ test('flat atlas removes singleton hierarchy levels', () => {
   assert.deepEqual(pro.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
     ['tmn-stadium-pro', true, 10]
   ]);
-  assert.equal(pro.campaigns[0].maps[0].y, pro.campaigns[0].titleHeight, 'Pro maps keep campaign-title spacing');
+  assert.equal(pro.campaigns[0].maps[0].y, pro.campaigns[0].titleHeight, 'Pro maps use normal border padding');
+  assert.equal(pro.campaigns[0].titleHeight, FLAT_ATLAS_STYLE.campaignPad);
   const bonus = buildFlatAtlasLayout({
     ...baseState(atlas),
     selectedGameId: 'tmn',

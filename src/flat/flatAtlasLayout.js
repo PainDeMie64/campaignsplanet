@@ -162,7 +162,7 @@ function layoutCampaign(campaign, measureText, style, expanded = false, options 
   });
   const grid = bestMapGrid(mapCells);
   const contentWidth = Math.max(options.hideTitle ? 1 : titleWidth, grid.width);
-  const titleHeight = style.campaignTitleSize + style.campaignPad;
+  const titleHeight = options.hideTitle ? style.campaignPad : style.campaignTitleSize + style.campaignPad;
   const width = contentWidth + style.campaignPad * 2;
   const height = titleHeight + grid.height + style.campaignPad;
   return {
