@@ -9,7 +9,6 @@ const CLASSIC_TIERS = [
 ];
 
 const SEASON_TIERS = CLASSIC_TIERS.map((tier) => ({ ...tier, count: 5 }));
-const ORIGINAL_TIERS = tierCounts({ white: 8, green: 8, blue: 8, red: 8, black: 5 });
 const UNITED_TIERS = tierCounts({ white: 5, green: 5, blue: 5, red: 5, black: 1 });
 
 const MODE = {
@@ -20,6 +19,7 @@ const MODE = {
   PLATFORM: 'Platform',
   PUZZLE: 'Puzzle',
   CRAZY: 'Crazy',
+  SURVIVAL: 'Survival',
   SOLO: 'Solo Campaign',
   PRO: 'Pro Campaign',
   BONUS: 'Bonus Campaign',
@@ -30,12 +30,6 @@ const MODE = {
 
 function tierCounts(counts) {
   return CLASSIC_TIERS.map((tier) => ({ ...tier, count: counts[tier.id] ?? tier.count }));
-}
-
-function tierWithCode(tiers, code) {
-  const tier = tiers.find((item) => item.code === code);
-  if (!tier) throw new Error(`Unknown campaign tier ${code}`);
-  return tier;
 }
 
 function medals(seed, index, difficulty) {
@@ -289,6 +283,14 @@ const NATIONS_ESWC_SPECIAL_TIERS = [
   { id: 'bonus', code: 'BONUS', name: 'Bonus', count: 20, difficulty: 6, color: '#ffd166' }
 ];
 
+const NATIONS_ESWC_SPECIAL_MAPS = {
+  pro: Array.from({ length: 10 }, (_, index) => `Pro A-${index}`),
+  bonus: [
+    ...Array.from({ length: 10 }, (_, index) => `Bonus A-${index}`),
+    ...Array.from({ length: 10 }, (_, index) => `Bonus B-${index}`)
+  ]
+};
+
 function nationsEswcSeries({ points }) {
   const soloCampaigns = NATIONS_ESWC_LETTERS.map((tier, index) => tierCampaign({
     id: `tmn-stadium-${tier.id}`,
@@ -328,16 +330,12 @@ function nationsEswcSeries({ points }) {
     region: tier.id === 'pro' ? MODE.PRO : MODE.BONUS,
     surface: 'stadium',
     description: `TrackMania Nations ESWC ${tier.name.toLowerCase()} campaign maps.`,
-    nameForIndex: (mapIndex) => `${tier.code}-${mapIndex}`
+    nameForIndex: (mapIndex) => NATIONS_ESWC_SPECIAL_MAPS[tier.id][mapIndex]
   }));
   return [...soloCampaigns, ...specialCampaigns];
 }
 
 const points = (...items) => items.map(([lat, lon]) => ({ lat, lon }));
-
-const tmoSnow = points([38, -118], [43, -114], [49, -113], [54, -117], [58, -124]);
-const tmoDesert = points([28, -136], [34, -143], [42, -146], [50, -143], [57, -136]);
-const tmoRally = points([36, -153], [43, -157], [51, -156], [58, -151], [62, -144]);
 
 const tmnStadium = points([59, -76], [55, -65], [50, -54], [44, -44], [36, -36]);
 const tmufSnow = points([42, 49], [46, 52], [50, 54], [54, 52], [56, 48]);
@@ -502,26 +500,98 @@ function sunriseCampaignSeries() {
   });
 }
 
-function originalRaceCampaign({ environment, baseId, tierCode, lat, lon, surface, description }) {
-  const tier = tierWithCode(ORIGINAL_TIERS, tierCode);
-  return tierCampaign({
-    id: `${baseId}-${tier.id}`,
-    gameId: 'tmo',
-    family: environment,
-    environment,
-    mode: MODE.RACE,
+function codeMaps(prefix, letters, countForLetter) {
+  return letters.flatMap((letter) => (
+    Array.from({ length: countForLetter(letter) }, (_, index) => `${prefix}${letter}${index + 1}`)
+  ));
+}
+
+const ORIGINAL_CAMPAIGN_GROUPS = [
+  {
     category: MODE.RACE,
-    tier,
-    shortLabel: `${environment} ${tier.code}`,
     releaseDate: '2003-11-21',
     era: 'Classic',
-    lat,
-    lon,
-    region: environment,
-    surface,
-    description,
-    nameForIndex: (mapIndex) => `Race${tier.code}${mapIndex + 1}`
-  });
+    color: '#f4f7f8',
+    difficulty: 2,
+    groups: 'ABCDEFG'.split('').map((letter) => [
+      `Group ${letter}`,
+      codeMaps('Race', [letter], (item) => item === 'G' ? 3 : 8)
+    ])
+  },
+  {
+    category: MODE.PLATFORM,
+    releaseDate: '2005-10-12',
+    era: 'Original',
+    color: '#4da3ff',
+    difficulty: 6,
+    groups: 'ABCDE'.split('').map((letter) => [
+      `Group ${letter}`,
+      codeMaps('Platform', [letter], () => 3)
+    ])
+  },
+  {
+    category: MODE.PUZZLE,
+    releaseDate: '2003-11-21',
+    era: 'Classic',
+    color: '#58d36c',
+    difficulty: 5,
+    groups: 'ABCDEFG'.split('').map((letter) => [
+      `Group ${letter}`,
+      codeMaps('Puzzle', [letter], (item) => item === 'G' ? 3 : 8)
+    ])
+  },
+  {
+    category: MODE.STUNTS,
+    releaseDate: '2005-10-12',
+    era: 'Original',
+    color: '#ff9f1c',
+    difficulty: 6,
+    mode: MODE.STUNT,
+    groups: 'ABCD'.split('').map((letter) => [
+      `Group ${letter}`,
+      codeMaps('Stunts', [letter], () => 3)
+    ])
+  },
+  {
+    category: MODE.SURVIVAL,
+    releaseDate: '2004-05-21',
+    era: 'Power-Up',
+    color: '#ff4d6d',
+    difficulty: 7,
+    mode: MODE.RACE,
+    groups: [
+      ['Survival', Array.from({ length: 18 }, (_, index) => `Survival${String(index + 1).padStart(2, '0')}`)]
+    ]
+  }
+];
+
+function originalCampaignSeries() {
+  return ORIGINAL_CAMPAIGN_GROUPS.flatMap((section, sectionIndex) => (
+    section.groups.map(([group, mapNames], groupIndex) => explicitCampaign({
+      id: `tmo-${slug(section.category)}-${slug(group)}`,
+      gameId: 'tmo',
+      family: section.category,
+      environment: 'Mixed',
+      mode: section.mode ?? section.category,
+      category: section.category,
+      tier: {
+        id: slug(group),
+        code: group,
+        name: group,
+        count: mapNames.length,
+        difficulty: Math.min(10, section.difficulty + Math.floor(groupIndex / 2)),
+        color: section.color
+      },
+      shortLabel: group,
+      order: sectionIndex * 100 + groupIndex,
+      releaseDate: section.releaseDate,
+      era: section.era,
+      region: group,
+      surface: 'mixed',
+      description: `TrackMania Original ${section.category} ${group} maps from the medal-times source.`,
+      mapNames
+    }))
+  ));
 }
 
 export const CAMPAIGN_ATLAS = {
@@ -535,8 +605,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2003,
       status: 'legacy',
       palette: { land: '#665745', coast: '#f1d28b', accent: '#ffcf5f', ocean: '#263846' },
-      terrain: 'original solo race campaign using Snow, Desert, and Rally maps',
-      environments: [MODE.RACE],
+      terrain: 'first-game campaigns organized by source-listed mode and letter group',
+      environments: [MODE.RACE, MODE.PLATFORM, MODE.PUZZLE, MODE.STUNTS, MODE.SURVIVAL],
       regionLabelOffsets: {
         Snow: { dx: -25, dy: -54 },
         Desert: { dx: -65, dy: 8 },
@@ -668,11 +738,7 @@ export const CAMPAIGN_ATLAS = {
     }
   ],
   campaigns: [
-    originalRaceCampaign({ environment: 'Snow', baseId: 'tmo-snow', tierCode: 'A', lat: tmoSnow[0].lat, lon: tmoSnow[0].lon, surface: 'snow', description: 'TrackMania Original Snow RaceA official progression.' }),
-    originalRaceCampaign({ environment: 'Snow', baseId: 'tmo-snow', tierCode: 'D', lat: tmoSnow[3].lat, lon: tmoSnow[3].lon, surface: 'snow', description: 'TrackMania Original Snow RaceD official progression.' }),
-    originalRaceCampaign({ environment: 'Desert', baseId: 'tmo-desert', tierCode: 'B', lat: tmoDesert[1].lat, lon: tmoDesert[1].lon, surface: 'road', description: 'TrackMania Original Desert RaceB official progression.' }),
-    originalRaceCampaign({ environment: 'Desert', baseId: 'tmo-desert', tierCode: 'E', lat: tmoDesert[4].lat, lon: tmoDesert[4].lon, surface: 'road', description: 'TrackMania Original Desert RaceE official progression.' }),
-    originalRaceCampaign({ environment: 'Rally', baseId: 'tmo-rally', tierCode: 'C', lat: tmoRally[2].lat, lon: tmoRally[2].lon, surface: 'road', description: 'TrackMania Original Rally RaceC official progression.' }),
+    ...originalCampaignSeries(),
 
     ...sunriseCampaignSeries(),
 
@@ -688,10 +754,10 @@ export const CAMPAIGN_ATLAS = {
 
     ...classicSeries({ gameId: 'tmnf', family: 'Stadium', environment: 'Stadium', baseId: 'tmnf-stadium', releaseDate: '2008-04-16', era: 'Forever', status: 'active', points: tmnfStadium, region: 'Stadium', surface: 'stadium', description: 'Nations Forever Stadium official A-E progression.', mapNameForIndex: tmnfMapName }),
 
-    ...classicSeries({ gameId: 'tm2', family: 'Canyon', environment: 'Canyon', baseId: 'tm2-canyon', releaseDate: '2011-09-14', era: 'Maniaplanet', points: tm2Canyon, region: 'Canyon', surface: 'canyon', description: 'TrackMania 2 Canyon official A-E progression.', mapNameForIndex: ({ tier, mapIndex, environment }) => `${environment} ${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
-    ...classicSeries({ gameId: 'tm2', family: 'Stadium', environment: 'Stadium', baseId: 'tm2-stadium', releaseDate: '2013-02-27', era: 'Maniaplanet', points: tm2Stadium, region: 'Stadium', surface: 'stadium', description: 'TrackMania 2 Stadium official A-E progression.', mapNameForIndex: ({ tier, mapIndex, environment }) => `${environment} ${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
-    ...classicSeries({ gameId: 'tm2', family: 'Valley', environment: 'Valley', baseId: 'tm2-valley', releaseDate: '2013-07-04', era: 'Maniaplanet', points: tm2Valley, region: 'Valley', surface: 'road', description: 'TrackMania 2 Valley official A-E progression.', mapNameForIndex: ({ tier, mapIndex, environment }) => `${environment} ${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
-    ...classicSeries({ gameId: 'tm2', family: 'Lagoon', environment: 'Lagoon', baseId: 'tm2-lagoon', releaseDate: '2017-05-23', era: 'Maniaplanet', points: tm2Lagoon, region: 'Lagoon', surface: 'wood', description: 'TrackMania 2 Lagoon official A-E progression.', mapNameForIndex: ({ tier, mapIndex, environment }) => `${environment} ${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
+    ...classicSeries({ gameId: 'tm2', family: 'Canyon', environment: 'Canyon', baseId: 'tm2-canyon', releaseDate: '2011-09-14', era: 'Maniaplanet', points: tm2Canyon, region: 'Canyon', surface: 'canyon', description: 'TrackMania 2 Canyon official A-E progression.', mapNameForIndex: ({ tier, mapIndex }) => `${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
+    ...classicSeries({ gameId: 'tm2', family: 'Stadium', environment: 'Stadium', baseId: 'tm2-stadium', releaseDate: '2013-02-27', era: 'Maniaplanet', points: tm2Stadium, region: 'Stadium', surface: 'stadium', description: 'TrackMania 2 Stadium official A-E progression.', mapNameForIndex: ({ tier, mapIndex }) => `${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
+    ...classicSeries({ gameId: 'tm2', family: 'Valley', environment: 'Valley', baseId: 'tm2-valley', releaseDate: '2013-07-04', era: 'Maniaplanet', points: tm2Valley, region: 'Valley', surface: 'road', description: 'TrackMania 2 Valley official A-E progression.', mapNameForIndex: ({ tier, mapIndex }) => `${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
+    ...classicSeries({ gameId: 'tm2', family: 'Lagoon', environment: 'Lagoon', baseId: 'tm2-lagoon', releaseDate: '2017-05-23', era: 'Maniaplanet', points: tm2Lagoon, region: 'Lagoon', surface: 'wood', description: 'TrackMania 2 Lagoon official A-E progression.', mapNameForIndex: ({ tier, mapIndex }) => `${tier.code}${String(mapIndex + 1).padStart(2, '0')}` }),
 
     ...TM2020_SEASONS.flatMap((season) => seasonSeries({ gameId: 'tm2020', status: 'active', ...season }))
   ]

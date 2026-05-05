@@ -75,6 +75,20 @@ test('atlas organization matches source-backed campaign buckets', () => {
   const byGame = (gameId) => atlas.campaigns.filter((campaign) => campaign.gameId === gameId);
   const groupsFor = (gameId) => [...new Set(byGame(gameId).map(campaignGroupLabel))];
 
+  assert.deepEqual(groupsFor('tmo'), ['Race', 'Platform', 'Puzzle', 'Stunts', 'Survival']);
+  assert.equal(byGame('tmo').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.deepEqual(
+    atlas.campaignById['tmo-race-group-a'].maps.map((map) => map.name),
+    ['RaceA1', 'RaceA2', 'RaceA3', 'RaceA4', 'RaceA5', 'RaceA6', 'RaceA7', 'RaceA8']
+  );
+  assert.deepEqual(
+    atlas.campaignById['tmo-platform-group-e'].maps.map((map) => map.name),
+    ['PlatformE1', 'PlatformE2', 'PlatformE3']
+  );
+  assert.ok(atlas.campaignById['tmo-puzzle-group-g'].maps.some((map) => map.name === 'PuzzleG3'));
+  assert.ok(atlas.campaignById['tmo-stunts-group-d'].maps.some((map) => map.name === 'StuntsD3'));
+  assert.ok(atlas.campaignById['tmo-survival-survival'].maps.some((map) => map.name === 'Survival18'));
+
   assert.deepEqual(groupsFor('tmn'), ['Solo Campaign', 'Pro Campaign', 'Bonus Campaign']);
   assert.equal(byGame('tmn').reduce((sum, campaign) => sum + campaign.maps.length, 0), 120);
   assert.deepEqual(
@@ -83,6 +97,8 @@ test('atlas organization matches source-backed campaign buckets', () => {
   );
   assert.equal(atlas.campaignById['tmn-stadium-pro'].maps.length, 10);
   assert.equal(atlas.campaignById['tmn-stadium-bonus'].maps.length, 20);
+  assert.equal(atlas.campaignById['tmn-stadium-pro'].maps[0].name, 'Pro A-0');
+  assert.equal(atlas.campaignById['tmn-stadium-bonus'].maps[10].name, 'Bonus B-0');
 
   assert.deepEqual(groupsFor('tms'), ['Race', 'Race Extreme', 'Crazy', 'Platform', 'Puzzle', 'Stunts', 'Bonus Tracks']);
   assert.equal(byGame('tms').reduce((sum, campaign) => sum + campaign.maps.length, 0), 158);
@@ -102,6 +118,13 @@ test('atlas organization matches source-backed campaign buckets', () => {
   assert.deepEqual(groupsFor('tmuf'), ['Race']);
   assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
   assert.deepEqual([...new Set(byGame('tmuf').map((campaign) => campaign.environment))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+
+  assert.deepEqual(groupsFor('tm2'), ['Canyon', 'Stadium', 'Valley', 'Lagoon']);
+  assert.equal(byGame('tm2').reduce((sum, campaign) => sum + campaign.maps.length, 0), 260);
+  assert.equal(atlas.campaignById['tm2-canyon-white'].maps[0].name, 'A01');
+  assert.equal(atlas.campaignById['tm2-stadium-green'].maps.at(-1).name, 'B15');
+  assert.equal(atlas.campaignById['tm2-valley-red'].maps[0].name, 'D01');
+  assert.equal(atlas.campaignById['tm2-lagoon-black'].maps.at(-1).name, 'E05');
 
   assert.deepEqual(groupsFor('tm2020'), ['Training', 'Seasonal Campaigns']);
   assert.equal(atlas.campaignById['tm2020-spring-2026-white'].category, 'Seasonal Campaigns');
