@@ -374,8 +374,9 @@ test('flat atlas removes singleton hierarchy levels', () => {
     selectedRegion: 'Stadium',
     selectedCampaignId: 'tmnf-stadium-white'
   }, measure).games.find((game) => game.game.id === 'tmnf');
-  assert.equal(forever.environments.length, 0, 'single Stadium category is promoted out of Nations Forever');
-  assert.deepEqual(forever.campaigns.map((campaign) => campaign.campaign.id), [
+  assert.equal(forever.environments.length, 1, 'single Stadium category keeps normal panel chrome');
+  assert.equal(forever.environments[0].hideTitle, true, 'redundant Stadium title is hidden');
+  assert.deepEqual(forever.environments[0].campaigns.map((campaign) => campaign.campaign.id), [
     'tmnf-stadium-white',
     'tmnf-stadium-green',
     'tmnf-stadium-blue',
@@ -389,8 +390,9 @@ test('flat atlas removes singleton hierarchy levels', () => {
     selectedRegion: 'Seasonal Campaigns',
     selectedCampaignId: 'tm2020-spring-2026-white'
   }, measure).games.find((game) => game.game.id === 'tm2020');
-  assert.equal(live.environments.length, 0, 'single current Seasonal Campaigns category is promoted out of Trackmania 2020');
-  assert.deepEqual(live.campaigns.map((campaign) => campaign.campaign.id), [
+  assert.equal(live.environments.length, 1, 'current Seasonal Campaigns keeps normal panel chrome');
+  assert.equal(live.environments[0].hideTitle, true, 'redundant Seasonal Campaigns title is hidden');
+  assert.deepEqual(live.environments[0].campaigns.map((campaign) => campaign.campaign.id), [
     'tm2020-spring-2026-white',
     'tm2020-spring-2026-green',
     'tm2020-spring-2026-blue',

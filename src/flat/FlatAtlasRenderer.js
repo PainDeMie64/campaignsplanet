@@ -366,13 +366,15 @@ export class FlatAtlasRenderer {
     this.ctx.strokeStyle = alpha(game.game.palette.coast, selected ? 0.92 : 0.52);
     this.ctx.lineWidth = selected ? 2 : 1;
     this.ctx.strokeRect(x, y, environment.width, environment.height);
-    this.drawText(
-      environment.title,
-      x + environment.titleX,
-      y + environment.titleY,
-      FLAT_ATLAS_STYLE.environmentTitleSize,
-      game.game.palette.coast
-    );
+    if (!environment.hideTitle) {
+      this.drawText(
+        environment.title,
+        x + environment.titleX,
+        y + environment.titleY,
+        FLAT_ATLAS_STYLE.environmentTitleSize,
+        game.game.palette.coast
+      );
+    }
     for (const section of environment.sections ?? []) this.drawSection(game, environment, section);
     for (const campaign of environment.campaigns) this.drawCampaign(game, environment, campaign);
   }

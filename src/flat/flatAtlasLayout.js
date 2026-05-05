@@ -186,7 +186,7 @@ function layoutCampaign(campaign, measureText, style, expanded = false, options 
   };
 }
 
-function layoutEnvironment(game, environment, campaigns, measureText, style, expanded = false, selectedCampaignId = null) {
+function layoutEnvironment(game, environment, campaigns, measureText, style, expanded = false, selectedCampaignId = null, options = {}) {
   const environmentTitleWidth = textWidth(measureText, environment, style.environmentTitleSize, 900);
   if (!expanded) {
     const width = Math.max(180, environmentTitleWidth + style.environmentPad * 2);
@@ -197,6 +197,7 @@ function layoutEnvironment(game, environment, campaigns, measureText, style, exp
       width,
       height: style.environmentCollapsedHeight,
       title: environment,
+      hideTitle: Boolean(options.hideTitle),
       titleX: width / 2,
       titleY: style.environmentCollapsedHeight / 2,
       expanded: false,
@@ -232,8 +233,8 @@ function layoutEnvironment(game, environment, campaigns, measureText, style, exp
     width: row.reduce((sum, campaign, index) => sum + campaign.width + (index ? style.campaignGap : 0), 0),
     height: Math.max(...row.map((campaign) => campaign.height), 1)
   }));
-  const contentWidth = Math.max(environmentTitleWidth, ...rowSizes.map((row) => row.width), 1);
-  const titleHeight = style.environmentTitleSize + style.environmentPad;
+  const contentWidth = Math.max(options.hideTitle ? 1 : environmentTitleWidth, ...rowSizes.map((row) => row.width), 1);
+  const titleHeight = options.hideTitle ? 0 : style.environmentTitleSize + style.environmentPad;
   const contentHeight = titleHeight + rowSizes.reduce((sum, row, index) => sum + row.height + (index ? style.campaignGap : 0), 0);
   const width = contentWidth + style.environmentPad * 2;
   const height = contentHeight + style.environmentPad * 2;
@@ -256,6 +257,7 @@ function layoutEnvironment(game, environment, campaigns, measureText, style, exp
     width,
     height,
     title: environment,
+    hideTitle: Boolean(options.hideTitle),
     titleX: style.environmentPad + contentWidth / 2,
     titleY: style.environmentPad + style.environmentTitleSize,
     expanded: true,
@@ -425,48 +427,6 @@ function layoutEnvironmentWithSections(game, environment, campaigns, measureText
   };
 }
 
-function layoutCampaignsDirectly(campaigns, measureText, style, selectedCampaignId = null) {
-  const campaignLayouts = sortCampaigns(campaigns).map((campaign) => (
-    layoutCampaign(campaign, measureText, style, campaign.id === selectedCampaignId)
-  ));
-  const targetWidth = Math.max(
-    520,
-    Math.sqrt(campaignLayouts.reduce((sum, campaign) => sum + campaign.width * campaign.height, 0)) * 1.45
-  );
-  const rows = [];
-  let current = [];
-  let currentWidth = 0;
-  for (const campaign of campaignLayouts) {
-    const nextWidth = currentWidth + (current.length ? style.campaignGap : 0) + campaign.width;
-    if (current.length && nextWidth > targetWidth) {
-      rows.push(current);
-      current = [];
-      currentWidth = 0;
-    }
-    current.push(campaign);
-    currentWidth += (current.length > 1 ? style.campaignGap : 0) + campaign.width;
-  }
-  if (current.length) rows.push(current);
-  const rowSizes = rows.map((row) => ({
-    width: row.reduce((sum, campaign, index) => sum + campaign.width + (index ? style.campaignGap : 0), 0),
-    height: Math.max(...row.map((campaign) => campaign.height), 1)
-  }));
-  const width = Math.max(...rowSizes.map((row) => row.width), 1);
-  const height = rowSizes.reduce((sum, row, index) => sum + row.height + (index ? style.campaignGap : 0), 0);
-  const placed = [];
-  let y = 0;
-  rows.forEach((row, rowIndex) => {
-    const rowSize = rowSizes[rowIndex];
-    let x = (width - rowSize.width) / 2;
-    for (const campaign of row) {
-      placed.push({ ...campaign, x, y });
-      x += campaign.width + style.campaignGap;
-    }
-    y += rowSize.height + style.campaignGap;
-  });
-  return { width, height, campaigns: placed };
-}
-
 function layoutGame(game, campaigns, measureText, style, selectedPath) {
   const releaseYear = GAME_RELEASE_YEARS[game.id] ?? game.releaseYear ?? Number.parseInt(game.releaseYear, 10) ?? 0;
   const gameTitleWidth = textWidth(measureText, game.name, style.gameTitleSize, 900);
@@ -488,10 +448,7 @@ function layoutGame(game, campaigns, measureText, style, selectedPath) {
   }
   const groups = groupBy(campaigns, campaignGroupLabel);
   const inlineOnlyEnvironment = groups.size === 1;
-  const directCampaigns = inlineOnlyEnvironment
-    ? layoutCampaignsDirectly(campaigns, measureText, style, selectedPath.campaignId)
-    : null;
-  const environmentLayouts = inlineOnlyEnvironment ? [] : environmentOrder(game, groups).map((environment) => (
+  const environmentLayouts = environmentOrder(game, groups).map((environment) => (
     groups.get(environment).some(sectionLabel) ? layoutEnvironmentWithSections(
       game,
       environment,
@@ -507,34 +464,11 @@ function layoutGame(game, campaigns, measureText, style, selectedPath) {
       groups.get(environment),
       measureText,
       style,
-      environment === selectedPath.environment,
-      selectedPath.campaignId
+      inlineOnlyEnvironment || environment === selectedPath.environment,
+      selectedPath.campaignId,
+      { hideTitle: inlineOnlyEnvironment }
     )
   ));
-  if (directCampaigns) {
-    const contentWidth = Math.max(gameTitleWidth, directCampaigns.width, 1);
-    const titleHeight = style.gameTitleSize + style.gamePad;
-    const width = contentWidth + style.gamePad * 2;
-    const height = titleHeight + directCampaigns.height + style.gamePad * 2;
-    return {
-      game,
-      x: 0,
-      y: 0,
-      width,
-      height,
-      releaseYear,
-      title: game.name,
-      titleX: style.gamePad + contentWidth / 2,
-      titleY: style.gamePad + style.gameTitleSize,
-      expanded: true,
-      environments: [],
-      campaigns: directCampaigns.campaigns.map((campaign) => ({
-        ...campaign,
-        x: style.gamePad + (contentWidth - directCampaigns.width) / 2 + campaign.x,
-        y: style.gamePad + titleHeight + campaign.y
-      }))
-    };
-  }
   const targetWidth = Math.max(
     520,
     Math.sqrt(environmentLayouts.reduce((sum, environment) => sum + environment.width * environment.height, 0)) * 1.45
