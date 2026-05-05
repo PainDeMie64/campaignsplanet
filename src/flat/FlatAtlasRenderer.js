@@ -23,8 +23,8 @@ function rectContains(rect, x, y) {
 
 function campaignOrigin(game, environment, campaign, section = null) {
   return {
-    x: game.x + environment.x + (section?.x ?? 0) + campaign.x,
-    y: game.y + environment.y + (section?.y ?? 0) + campaign.y
+    x: game.x + (environment?.x ?? 0) + (section?.x ?? 0) + campaign.x,
+    y: game.y + (environment?.y ?? 0) + (section?.y ?? 0) + campaign.y
   };
 }
 
@@ -151,6 +151,41 @@ export class FlatAtlasRenderer {
     const layout = this.layout ?? buildFlatAtlasLayout(this.store.getState(), (text, size, weight) => this.measureText(text, size, weight));
     for (const game of layout.games) {
       if (!rectContains(game, point.x, point.y)) continue;
+      for (const campaign of game.campaigns ?? []) {
+        const campaignRect = {
+          x: game.x + campaign.x,
+          y: game.y + campaign.y,
+          width: campaign.width,
+          height: campaign.height
+        };
+        if (!rectContains(campaignRect, point.x, point.y)) continue;
+        for (const map of campaign.maps) {
+          const mapRect = {
+            x: campaignRect.x + map.x,
+            y: campaignRect.y + map.y,
+            width: map.width,
+            height: map.height
+          };
+          if (rectContains(mapRect, point.x, point.y)) {
+            this.store.setState(() => ({
+              selectedGameId: game.game.id,
+              selectedRegion: campaign.campaign.category ?? campaign.campaign.environment,
+              selectedSection: campaign.campaign.section ?? null,
+              selectedCampaignId: campaign.campaign.id,
+              selectedMapId: map.map.id
+            }), { source: 'flat-atlas-map-pick' });
+            return;
+          }
+        }
+        this.store.setState(() => ({
+          selectedGameId: game.game.id,
+          selectedRegion: campaign.campaign.category ?? campaign.campaign.environment,
+          selectedSection: campaign.campaign.section ?? null,
+          selectedCampaignId: campaign.campaign.id,
+          selectedMapId: null
+        }), { source: 'flat-atlas-campaign-pick' });
+        return;
+      }
       for (const environment of game.environments) {
         const environmentRect = {
           x: game.x + environment.x,
@@ -301,7 +336,9 @@ export class FlatAtlasRenderer {
     this.ctx.strokeStyle = alpha(game.game.palette.coast, selected ? 0.92 : 0.56);
     this.ctx.lineWidth = selected ? 2 : 1;
     this.ctx.strokeRect(x, y, campaign.width, campaign.height);
-    this.drawText(campaign.title, x + campaign.width / 2, y + FLAT_ATLAS_STYLE.campaignPad + 2, FLAT_ATLAS_STYLE.campaignTitleSize, '#f8f7e6');
+    if (!campaign.hideTitle) {
+      this.drawText(campaign.title, x + campaign.width / 2, y + FLAT_ATLAS_STYLE.campaignPad + 2, FLAT_ATLAS_STYLE.campaignTitleSize, '#f8f7e6');
+    }
     for (const map of campaign.maps) this.drawMap(game, environment, campaign, map, section);
   }
 
@@ -349,6 +386,7 @@ export class FlatAtlasRenderer {
     this.ctx.lineWidth = selected ? 3 : 1.5;
     this.ctx.strokeRect(game.x, game.y, game.width, game.height);
     this.drawText(game.title, game.x + game.titleX, game.y + game.titleY, FLAT_ATLAS_STYLE.gameTitleSize, game.game.palette.coast);
+    for (const campaign of game.campaigns ?? []) this.drawCampaign(game, null, campaign);
     for (const environment of game.environments) this.drawEnvironment(game, environment);
   }
 

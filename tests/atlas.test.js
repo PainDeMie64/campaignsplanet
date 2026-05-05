@@ -40,14 +40,17 @@ function visibleCampaignsForGame(state, game) {
 
 function flattenLayoutMaps(layout) {
   return layout.games.flatMap((game) => (
-    game.environments.flatMap((environment) => (
-      [
-        ...environment.campaigns.flatMap((campaign) => campaign.maps),
-        ...(environment.sections ?? []).flatMap((section) => (
-          section.campaigns.flatMap((campaign) => campaign.maps)
-        ))
-      ]
-    ))
+    [
+      ...(game.campaigns ?? []).flatMap((campaign) => campaign.maps),
+      ...game.environments.flatMap((environment) => (
+        [
+          ...environment.campaigns.flatMap((campaign) => campaign.maps),
+          ...(environment.sections ?? []).flatMap((section) => (
+            section.campaigns.flatMap((campaign) => campaign.maps)
+          ))
+        ]
+      ))
+    ]
   ));
 }
 
@@ -204,6 +207,11 @@ test('flat atlas layout is generated bottom-up from single-line map labels', () 
   assert.equal(flattenLayoutMaps(layout).length, atlas.campaignById['tm2-canyon-white'].maps.length);
   for (const game of layout.games) {
     assert.ok(game.width > 0 && game.height > 0, `${game.game.id} game continent has area`);
+    for (const campaign of game.campaigns ?? []) {
+      assert.ok(campaign.x >= 0 && campaign.y >= 0, `${campaign.campaign.id} stays inside game origin`);
+      assert.ok(campaign.x + campaign.width <= game.width, `${campaign.campaign.id} stays inside game width`);
+      assert.ok(campaign.y + campaign.height <= game.height, `${campaign.campaign.id} stays inside game height`);
+    }
     for (const environment of game.environments) {
       assert.ok(environment.width > 0 && environment.height > 0, `${game.game.id} ${environment.environment} environment has area`);
       assert.ok(environment.x >= 0 && environment.y >= 0, `${environment.environment} stays inside game origin`);
@@ -311,6 +319,84 @@ test('flat atlas nests United Forever race and startrack environments', () => {
   assert.deepEqual(starTrack.sections.map((section) => section.section), ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
   assert.deepEqual(starTrack.sections.filter((section) => section.expanded).map((section) => section.section), ['Snow']);
   assert.deepEqual(starTrack.sections.find((section) => section.section === 'Snow').campaigns.filter((campaign) => campaign.expanded).map((campaign) => campaign.campaign.id), ['tmuf-star-snow-white']);
+});
+
+test('flat atlas removes singleton hierarchy levels', () => {
+  const atlas = deriveAtlas(CAMPAIGN_ATLAS);
+  const measure = deterministicTextWidth;
+
+  const original = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tmo',
+    selectedRegion: 'Survival',
+    selectedCampaignId: 'tmo-survival-survival'
+  }, measure).games.find((game) => game.game.id === 'tmo');
+  const survival = original.environments.find((environment) => environment.environment === 'Survival');
+  assert.deepEqual(survival.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
+    ['tmo-survival-survival', true, 18]
+  ]);
+
+  const sunrise = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tms',
+    selectedRegion: 'Race Extreme',
+    selectedCampaignId: 'tms-race-extreme-extreme'
+  }, measure).games.find((game) => game.game.id === 'tms');
+  const raceExtreme = sunrise.environments.find((environment) => environment.environment === 'Race Extreme');
+  assert.deepEqual(raceExtreme.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
+    ['tms-race-extreme-extreme', true, 9]
+  ]);
+
+  const nations = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tmn',
+    selectedRegion: 'Pro Campaign',
+    selectedCampaignId: 'tmn-stadium-pro'
+  }, measure).games.find((game) => game.game.id === 'tmn');
+  const pro = nations.environments.find((environment) => environment.environment === 'Pro Campaign');
+  assert.deepEqual(pro.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
+    ['tmn-stadium-pro', true, 10]
+  ]);
+  const bonus = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tmn',
+    selectedRegion: 'Bonus Campaign',
+    selectedCampaignId: 'tmn-stadium-bonus'
+  }, measure).games.find((game) => game.game.id === 'tmn')
+    .environments.find((environment) => environment.environment === 'Bonus Campaign');
+  assert.deepEqual(bonus.campaigns.map((campaign) => [campaign.campaign.id, campaign.hideTitle, campaign.maps.length]), [
+    ['tmn-stadium-bonus', true, 20]
+  ]);
+
+  const forever = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tmnf',
+    selectedRegion: 'Stadium',
+    selectedCampaignId: 'tmnf-stadium-white'
+  }, measure).games.find((game) => game.game.id === 'tmnf');
+  assert.equal(forever.environments.length, 0, 'single Stadium category is promoted out of Nations Forever');
+  assert.deepEqual(forever.campaigns.map((campaign) => campaign.campaign.id), [
+    'tmnf-stadium-white',
+    'tmnf-stadium-green',
+    'tmnf-stadium-blue',
+    'tmnf-stadium-red',
+    'tmnf-stadium-black'
+  ]);
+
+  const live = buildFlatAtlasLayout({
+    ...baseState(atlas),
+    selectedGameId: 'tm2020',
+    selectedRegion: 'Seasonal Campaigns',
+    selectedCampaignId: 'tm2020-spring-2026-white'
+  }, measure).games.find((game) => game.game.id === 'tm2020');
+  assert.equal(live.environments.length, 0, 'single current Seasonal Campaigns category is promoted out of Trackmania 2020');
+  assert.deepEqual(live.campaigns.map((campaign) => campaign.campaign.id), [
+    'tm2020-spring-2026-white',
+    'tm2020-spring-2026-green',
+    'tm2020-spring-2026-blue',
+    'tm2020-spring-2026-red',
+    'tm2020-spring-2026-black'
+  ]);
 });
 
 test('flat atlas lays games out as a chronological timeline', () => {
