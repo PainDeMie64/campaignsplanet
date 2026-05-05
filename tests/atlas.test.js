@@ -115,9 +115,35 @@ test('atlas organization matches source-backed campaign buckets', () => {
   assert.ok(atlas.campaignById['tms-bonus-tracks-microlaps'].maps.some((map) => map.name === 'SicilianArena'));
   assert.equal(byGame('tms').some((campaign) => campaign.maps.some((map) => ['DemoRace1', 'DemoRace2', 'SilicanArena', 'Forest Jumps'].includes(map.name))), false);
 
-  assert.deepEqual(groupsFor('tmuf'), ['Race']);
-  assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
-  assert.deepEqual([...new Set(byGame('tmuf').map((campaign) => campaign.environment))], ['Snow', 'Desert', 'Rally', 'Island', 'Coast', 'Bay', 'Stadium']);
+  assert.deepEqual(groupsFor('tmuf'), [
+    'Race - Snow',
+    'Race - Desert',
+    'Race - Rally',
+    'Race - Island',
+    'Race - Coast',
+    'Race - Bay',
+    'Race - Stadium',
+    'Platform',
+    'Puzzle',
+    'Stunts',
+    'Nations',
+    'StarTrack - Snow',
+    'StarTrack - Desert',
+    'StarTrack - Rally',
+    'StarTrack - Island',
+    'StarTrack - Coast',
+    'StarTrack - Bay',
+    'StarTrack - Stadium'
+  ]);
+  assert.equal(byGame('tmuf').reduce((sum, campaign) => sum + campaign.maps.length, 0), 422);
+  assert.equal(byGame('tmuf').filter((campaign) => campaign.category.startsWith('Race - ')).reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.equal(byGame('tmuf').filter((campaign) => campaign.category.startsWith('StarTrack - ')).reduce((sum, campaign) => sum + campaign.maps.length, 0), 147);
+  assert.equal(byGame('tmuf').filter((campaign) => campaign.category === 'Nations').reduce((sum, campaign) => sum + campaign.maps.length, 0), 65);
+  assert.equal(atlas.campaignById['tmuf-platform-black'].maps[0].name, 'PlatformE');
+  assert.equal(atlas.campaignById['tmuf-puzzle-black'].maps[0].name, 'PuzzleE');
+  assert.equal(atlas.campaignById['tmuf-stunts-black'].maps[0].name, 'StuntE1');
+  assert.equal(atlas.campaignById['tmuf-star-snow-black'].maps[0].name, 'StarSnowE');
+  assert.ok(atlas.campaignById['tmuf-nations-white'].maps.some((map) => map.name === 'A06-Obstacle'));
 
   assert.deepEqual(groupsFor('tm2'), ['Canyon', 'Stadium', 'Valley', 'Lagoon']);
   assert.equal(byGame('tm2').reduce((sum, campaign) => sum + campaign.maps.length, 0), 260);

@@ -20,6 +20,8 @@ const MODE = {
   PUZZLE: 'Puzzle',
   CRAZY: 'Crazy',
   SURVIVAL: 'Survival',
+  NATIONS: 'Nations',
+  STARTRACK: 'StarTrack',
   SOLO: 'Solo Campaign',
   PRO: 'Pro Campaign',
   BONUS: 'Bonus Campaign',
@@ -345,6 +347,7 @@ const tmufIsland = points([53, 27], [56, 32], [58, 37], [57, 42], [52, 43]);
 const tmufCoast = points([25, 10], [24, 16], [24, 22], [25, 28], [27, 33]);
 const tmufBay = points([31, 39], [30, 45], [31, 51], [34, 56], [39, 57]);
 const tmufStadium = points([43, 13], [44, 19], [45, 25], [46, 31], [47, 37]);
+const tmufMixed = points([28, 44], [35, 50], [42, 56], [49, 50], [56, 44]);
 
 const tmnfStadium = points([52, 96], [58, 109], [56, 122], [50, 134], [42, 140]);
 
@@ -352,6 +355,16 @@ const tm2Canyon = points([-14, 24], [-20, 32], [-27, 39], [-34, 46], [-42, 52]);
 const tm2Stadium = points([-9, 54], [-13, 60], [-17, 66], [-21, 72], [-26, 76]);
 const tm2Valley = points([-43, 28], [-49, 36], [-54, 45], [-57, 54], [-55, 63]);
 const tm2Lagoon = points([-36, 65], [-39, 69], [-42, 73], [-43, 77], [-40, 80]);
+
+const UNITED_ENVIRONMENTS = [
+  { environment: 'Snow', points: tmufSnow, surface: 'snow' },
+  { environment: 'Desert', points: tmufDesert, surface: 'road' },
+  { environment: 'Rally', points: tmufRally, surface: 'road' },
+  { environment: 'Island', points: tmufIsland, surface: 'asphalt' },
+  { environment: 'Coast', points: tmufCoast, surface: 'road' },
+  { environment: 'Bay', points: tmufBay, surface: 'city' },
+  { environment: 'Stadium', points: tmufStadium, surface: 'stadium' }
+];
 
 const tm2020Training = points([-47, -52], [-39, -57], [-31, -62], [-23, -64], [-16, -60]);
 const tm2020Spring = points([-52, -44], [-45, -40], [-38, -37], [-30, -36], [-22, -39]);
@@ -594,6 +607,134 @@ function originalCampaignSeries() {
   ));
 }
 
+function unitedTierMapName(prefix, tier, mapIndex) {
+  if (tier.code === 'E') return prefix === 'Stunt' ? `${prefix}E1` : `${prefix}E`;
+  return `${prefix}${tier.code}${mapIndex + 1}`;
+}
+
+function unitedRaceSeries() {
+  return UNITED_ENVIRONMENTS.flatMap(({ environment, points: environmentPoints, surface }) => (
+    classicSeries({
+      gameId: 'tmuf',
+      family: environment,
+      environment,
+      category: `${MODE.RACE} - ${environment}`,
+      baseId: `tmuf-${slug(environment)}`,
+      releaseDate: '2008-04-16',
+      era: 'Forever',
+      points: environmentPoints,
+      region: environment,
+      surface,
+      description: `UnitedRace official ${environment} campaign from the TrackMania Forever leaderboard source.`,
+      tiers: UNITED_TIERS,
+      shortLabelForTier: ({ tier }) => tier.code,
+      mapNameForIndex: ({ tier, mapIndex }) => unitedTierMapName(environment, tier, mapIndex)
+    })
+  ));
+}
+
+function unitedModeSeries({ family, mode, category, prefix, baseId, surface, description }) {
+  return classicSeries({
+    gameId: 'tmuf',
+    family,
+    environment: 'Mixed',
+    mode,
+    category,
+    baseId,
+    releaseDate: '2008-04-16',
+    era: 'Forever',
+    points: tmufMixed,
+    region: category,
+    surface,
+    description,
+    tiers: UNITED_TIERS,
+    shortLabelForTier: ({ tier }) => tier.code,
+    mapNameForIndex: ({ tier, mapIndex }) => unitedTierMapName(prefix, tier, mapIndex)
+  });
+}
+
+function unitedNationsSeries() {
+  return classicSeries({
+    gameId: 'tmuf',
+    family: MODE.NATIONS,
+    environment: 'Stadium',
+    category: MODE.NATIONS,
+    baseId: 'tmuf-nations',
+    releaseDate: '2008-04-16',
+    era: 'Forever',
+    points: tmnfStadium,
+    region: MODE.NATIONS,
+    surface: 'stadium',
+    description: 'Nations campaign as exposed by the TrackMania Forever United leaderboard source.',
+    mapNameForIndex: tmnfMapName
+  });
+}
+
+function unitedStarTrackSeries() {
+  return UNITED_ENVIRONMENTS.flatMap(({ environment, points: environmentPoints, surface }) => (
+    classicSeries({
+      gameId: 'tmuf',
+      family: `${MODE.STARTRACK} ${environment}`,
+      environment,
+      category: `${MODE.STARTRACK} - ${environment}`,
+      baseId: `tmuf-star-${slug(environment)}`,
+      releaseDate: '2009-11-26',
+      era: 'Star Edition',
+      points: environmentPoints,
+      region: `${MODE.STARTRACK} - ${environment}`,
+      surface,
+      description: `ManiaStar official StarTrack ${environment} campaign from the TrackMania Forever leaderboard source.`,
+      tiers: UNITED_TIERS,
+      shortLabelForTier: ({ tier }) => tier.code,
+      mapNameForIndex: ({ tier, mapIndex }) => unitedTierMapName(`Star${environment}`, tier, mapIndex)
+    })
+  ));
+}
+
+function unitedForeverCampaignSeries() {
+  return [
+    ...unitedRaceSeries(),
+    ...unitedModeSeries({
+      family: 'United Platform',
+      mode: MODE.PLATFORM,
+      category: MODE.PLATFORM,
+      prefix: 'Platform',
+      baseId: 'tmuf-platform',
+      surface: 'mixed',
+      description: 'UnitedPlatform official campaign from the TrackMania Forever leaderboard source.'
+    }),
+    ...unitedModeSeries({
+      family: 'United Puzzle',
+      mode: MODE.PUZZLE,
+      category: MODE.PUZZLE,
+      prefix: 'Puzzle',
+      baseId: 'tmuf-puzzle',
+      surface: 'mixed',
+      description: 'UnitedPuzzle official campaign from the TrackMania Forever leaderboard source.'
+    }),
+    ...unitedModeSeries({
+      family: 'United Stunts',
+      mode: MODE.STUNT,
+      category: MODE.STUNTS,
+      prefix: 'Stunt',
+      baseId: 'tmuf-stunts',
+      surface: 'mixed',
+      description: 'UnitedStunts official campaign from the TrackMania Forever leaderboard source.'
+    }),
+    ...unitedNationsSeries(),
+    ...unitedStarTrackSeries()
+  ];
+}
+
+const UNITED_CATEGORY_ORDER = [
+  ...UNITED_ENVIRONMENTS.map(({ environment }) => `${MODE.RACE} - ${environment}`),
+  MODE.PLATFORM,
+  MODE.PUZZLE,
+  MODE.STUNTS,
+  MODE.NATIONS,
+  ...UNITED_ENVIRONMENTS.map(({ environment }) => `${MODE.STARTRACK} - ${environment}`)
+];
+
 export const CAMPAIGN_ATLAS = {
   generatedAt: new Date().toISOString(),
   games: [
@@ -657,8 +798,8 @@ export const CAMPAIGN_ATLAS = {
       releaseYear: 2008,
       status: 'legacy',
       palette: { land: '#485f59', coast: '#f3f0d7', accent: '#61d394', ocean: '#20343f' },
-      terrain: 'United Forever solo race campaign across seven environments',
-      environments: [MODE.RACE],
+      terrain: 'UnitedRace, UnitedPuzzle, UnitedPlatform, UnitedStunts, Nations, and ManiaStar campaigns from official leaderboard names',
+      environments: UNITED_CATEGORY_ORDER,
       regionLabelOffsets: {
         Snow: { dx: -80, dy: -60 },
         Desert: { dx: 0, dy: -50 },
@@ -744,13 +885,7 @@ export const CAMPAIGN_ATLAS = {
 
     ...nationsEswcSeries({ points: tmnStadium }),
 
-    ...classicSeries({ gameId: 'tmuf', family: 'Snow', environment: 'Snow', category: MODE.RACE, baseId: 'tmuf-snow', releaseDate: '2008-04-16', era: 'Forever', points: tmufSnow, region: 'Snow', surface: 'snow', description: 'United Forever Snow official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Desert', environment: 'Desert', category: MODE.RACE, baseId: 'tmuf-desert', releaseDate: '2008-04-16', era: 'Forever', points: tmufDesert, region: 'Desert', surface: 'road', description: 'United Forever Desert official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Rally', environment: 'Rally', category: MODE.RACE, baseId: 'tmuf-rally', releaseDate: '2008-04-16', era: 'Forever', points: tmufRally, region: 'Rally', surface: 'road', description: 'United Forever Rally official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Island', environment: 'Island', category: MODE.RACE, baseId: 'tmuf-island', releaseDate: '2008-04-16', era: 'Forever', points: tmufIsland, region: 'Island', surface: 'asphalt', description: 'United Forever Island official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Coast', environment: 'Coast', category: MODE.RACE, baseId: 'tmuf-coast', releaseDate: '2008-04-16', era: 'Forever', points: tmufCoast, region: 'Coast', surface: 'road', description: 'United Forever Coast official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Bay', environment: 'Bay', category: MODE.RACE, baseId: 'tmuf-bay', releaseDate: '2008-04-16', era: 'Forever', points: tmufBay, region: 'Bay', surface: 'city', description: 'United Forever Bay official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
-    ...classicSeries({ gameId: 'tmuf', family: 'Stadium', environment: 'Stadium', category: MODE.RACE, baseId: 'tmuf-stadium', releaseDate: '2008-04-16', era: 'Forever', points: tmufStadium, region: 'Stadium', surface: 'stadium', description: 'United Forever Stadium official race progression.', tiers: UNITED_TIERS, shortLabelForTier: ({ tier, environment }) => `${environment} ${tier.code}`, mapNameForIndex: ({ tier, mapIndex, environment }) => tier.code === 'E' ? `${environment}E` : `${environment}${tier.code}${mapIndex + 1}` }),
+    ...unitedForeverCampaignSeries(),
 
     ...classicSeries({ gameId: 'tmnf', family: 'Stadium', environment: 'Stadium', baseId: 'tmnf-stadium', releaseDate: '2008-04-16', era: 'Forever', status: 'active', points: tmnfStadium, region: 'Stadium', surface: 'stadium', description: 'Nations Forever Stadium official A-E progression.', mapNameForIndex: tmnfMapName }),
 
